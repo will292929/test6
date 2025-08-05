@@ -3930,15 +3930,15 @@
         // ❌ Skip dormant unless revealed
         if (el.classList.contains('dormant') && !dormantVisible) return;
 
-
-
-
-
-
-        // ❌ Skip large containers (with multiple children or nested blocks)
-        const childTags = Array.from(el.children).map(c => c.tagName?.toLowerCase());
-        const isAtomic = childTags.length <= 1 && !childTags.some(t => ['p', 'div', 'section', 'h1', 'h2', 'h3', 'h4'].includes(t));
-        if (!['img', 'a', 'iframe', 'button'].includes(tag) && !isAtomic) return;
+        // ✅ Always allow images, links, buttons, and iframes regardless of container size
+        if (['img', 'a', 'iframe', 'button'].includes(tag)) {
+          // These elements should always be editable
+        } else {
+          // ❌ Skip large containers (with multiple children or nested blocks) for other elements
+          const childTags = Array.from(el.children).map(c => c.tagName?.toLowerCase());
+          const isAtomic = childTags.length <= 1 && !childTags.some(t => ['p', 'div', 'section', 'h1', 'h2', 'h3', 'h4'].includes(t));
+          if (!isAtomic) return;
+        }
 
         el.setAttribute('data-editor-attached', 'yes');
 
@@ -3946,24 +3946,57 @@
           const iframeSpaceHeld = doc._iframeSpaceHeld || false;
           const fullSpaceHeld = spaceHeld || iframeSpaceHeld;
 
+          // ✅ Enhanced element detection for overlapping elements
+          let targetElement = el;
+          
+          // If this is an image or iframe, ensure we're targeting the right element
+          if (['img', 'iframe'].includes(tag)) {
+            // For images and iframes, always use the clicked element
+            targetElement = el;
+          } else {
+            // For other elements, check if there's a more specific target at the click point
+            const clickX = e.clientX;
+            const clickY = e.clientY;
+            const elementAtPoint = doc.elementFromPoint(clickX, clickY);
+            
+            // If we found a more specific element at the click point, use it
+            if (elementAtPoint && elementAtPoint !== el) {
+              const elementTag = elementAtPoint.tagName.toLowerCase();
+              if (['img', 'a', 'iframe', 'button'].includes(elementTag)) {
+                targetElement = elementAtPoint;
+              }
+            }
+          }
+          
+          // ✅ Fallback: If we still can't find a good target, try to find any editable element at the click point
+          if (!targetElement || !targetElement.hasAttribute('data-editor-attached')) {
+            const clickX = e.clientX;
+            const clickY = e.clientY;
+            const elementAtPoint = doc.elementFromPoint(clickX, clickY);
+            if (elementAtPoint && elementAtPoint.hasAttribute('data-editor-attached')) {
+              targetElement = elementAtPoint;
+            }
+          }
+
           // Smart element detection and feedback
-          const detection = detectElementType(el);
-          showStatus(`🎯 Editing ${detection.type}: ${el.innerText?.trim().substring(0, 20) || el.tagName}`, 2000, 'info');
+          const detection = detectElementType(targetElement);
+          showStatus(`🎯 Editing ${detection.type}: ${targetElement.innerText?.trim().substring(0, 20) || targetElement.tagName}`, 2000, 'info');
 
           // 🔗 Identify editable attribute
           let attr = null;
-          if (tag === 'a') attr = 'href';
-          else if (['img', 'iframe'].includes(tag)) attr = 'src';
-          else if (tag === 'button') {
-            if (el.hasAttribute('href')) attr = 'href';
-            else if (el.hasAttribute('data-link')) attr = 'data-link';
-            else if (el.hasAttribute('onclick')) attr = 'onclick';
+          const targetTag = targetElement.tagName.toLowerCase();
+          if (targetTag === 'a') attr = 'href';
+          else if (['img', 'iframe'].includes(targetTag)) attr = 'src';
+          else if (targetTag === 'button') {
+            if (targetElement.hasAttribute('href')) attr = 'href';
+            else if (targetElement.hasAttribute('data-link')) attr = 'data-link';
+            else if (targetElement.hasAttribute('onclick')) attr = 'onclick';
           }
-          else if (tag === 'div' && el.hasAttribute('src')) {
-            const innerA = el.querySelector('a');
+          else if (targetTag === 'div' && targetElement.hasAttribute('src')) {
+            const innerA = targetElement.querySelector('a');
             if (innerA) {
               attr = 'href';
-              el = innerA; // now edits will target the <a>
+              targetElement = innerA; // now edits will target the <a>
             }
           }
 
@@ -3971,8 +4004,8 @@
           // ⌨️ Spacebar link follow behavior
           if (fullSpaceHeld && !spaceJustUsed) {
             spaceJustUsed = true;
-            if (attr && el.getAttribute(attr)) {
-              window.open(el.getAttribute(attr), '_blank');
+            if (attr && targetElement.getAttribute(attr)) {
+              window.open(targetElement.getAttribute(attr), '_blank');
             }
             return;
           }
@@ -4129,12 +4162,12 @@
               editDetails.style.display = 'block';
               overlay.querySelector('#urlEdit').style.display = 'block';
               const urlInput = overlay.querySelector('#urlInput');
-              urlInput.value = el.getAttribute(attr || 'src') || '';
+              urlInput.value = targetElement.getAttribute(attr || 'src') || '';
             } else if (choice === 'text') {
               editDetails.style.display = 'block';
               overlay.querySelector('#textEdit').style.display = 'block';
               const textInput = overlay.querySelector('#textInput');
-              textInput.value = el.innerText.trim() || '';
+              textInput.value = targetElement.innerText.trim() || '';
             } else if (choice === 'style') {
               editDetails.style.display = 'block';
               overlay.querySelector('#styleEdit').style.display = 'block';
@@ -4143,18 +4176,18 @@
               const fontSizeInput = overlay.querySelector('#fontSizeInput');
               
               // Set current values
-              const computedStyle = window.getComputedStyle(el);
+              const computedStyle = window.getComputedStyle(targetElement);
               bgColorInput.value = rgbToHex(computedStyle.backgroundColor);
               textColorInput.value = rgbToHex(computedStyle.color);
               fontSizeInput.value = computedStyle.fontSize;
               
               // Add event listeners for bulk styling
-              setupBulkStylingButtons(overlay, el, doc);
+              setupBulkStylingButtons(overlay, targetElement, doc);
             } else if (choice === 'browse') {
               editDetails.style.display = 'block';
               overlay.querySelector('#imageEdit').style.display = 'block';
               const imageUrlInput = overlay.querySelector('#imageUrlInput');
-              imageUrlInput.value = el.getAttribute(attr || 'src') || '';
+              imageUrlInput.value = targetElement.getAttribute(attr || 'src') || '';
             } else if (choice === 'googleform') {
               editDetails.style.display = 'block';
               overlay.querySelector('#googleFormEdit').style.display = 'block';
@@ -4189,16 +4222,16 @@
               const urlInput = overlay.querySelector('#urlInput');
               const newVal = urlInput.value.trim();
               if (newVal) {
-                if (tag === 'button') {
+                if (targetTag === 'button') {
                   // Prefer data-link if present
-                  if (el.hasAttribute('data-link')) {
-                    el.setAttribute('data-link', newVal);
+                  if (targetElement.hasAttribute('data-link')) {
+                    targetElement.setAttribute('data-link', newVal);
                   } else {
-                    el.setAttribute('onclick', `location.href='${newVal}'`);
+                    targetElement.setAttribute('onclick', `location.href='${newVal}'`);
                   }
                 } else {
-                  el.setAttribute(attr || 'src', newVal);
-                  if (tag === 'iframe') el.src = newVal;
+                  targetElement.setAttribute(attr || 'src', newVal);
+                  if (targetTag === 'iframe') targetElement.src = newVal;
                 }
                 saveToHistory();
               }
@@ -4211,21 +4244,25 @@
               
               if (newText !== null) {
                 // Only change text content, preserve ALL existing HTML structure and styling
-                const originalText = el.textContent || el.innerText;
+                const originalText = targetElement.textContent || targetElement.innerText;
                 
                 if (originalText === newText) {
                   // No change needed
                   return;
                 }
                 
-                // Store all existing attributes to preserve styling
-                const attributes = {};
-                for (let attr of el.attributes) {
-                  attributes[attr.name] = attr.value;
+                // Store the original element state completely
+                const originalOuterHTML = targetElement.outerHTML;
+                const originalTag = targetElement.tagName;
+                const originalClasses = targetElement.className;
+                const originalStyle = targetElement.getAttribute('style');
+                const originalAttributes = {};
+                for (let attr of targetElement.attributes) {
+                  originalAttributes[attr.name] = attr.value;
                 }
                 
-                // Find all text nodes in the element and replace their content
-                const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+                // Find all text nodes in the element and replace ONLY their content
+                const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT, null, false);
                 const textNodes = [];
                 let node;
                 while (node = walker.nextNode()) {
@@ -4241,13 +4278,36 @@
                   }
                 } else {
                   // If no text nodes found, append new text node
-                  el.appendChild(document.createTextNode(newText));
+                  targetElement.appendChild(document.createTextNode(newText));
                 }
                 
-                // Ensure all attributes are preserved (this should already be the case, but just to be safe)
-                for (let attrName in attributes) {
-                  if (!el.hasAttribute(attrName)) {
-                    el.setAttribute(attrName, attributes[attrName]);
+                // CRITICAL: Verify that we haven't lost any styling or structure
+                // If anything changed beyond the text content, restore the original
+                if (targetElement.tagName !== originalTag) {
+                  console.error('Text edit changed element tag! Restoring...');
+                  targetElement.outerHTML = originalOuterHTML;
+                  return;
+                }
+                
+                if (targetElement.className !== originalClasses) {
+                  console.error('Text edit changed element classes! Restoring...');
+                  targetElement.className = originalClasses;
+                }
+                
+                if (targetElement.getAttribute('style') !== originalStyle) {
+                  console.error('Text edit changed element style! Restoring...');
+                  if (originalStyle) {
+                    targetElement.setAttribute('style', originalStyle);
+                  } else {
+                    targetElement.removeAttribute('style');
+                  }
+                }
+                
+                // Verify all other attributes are preserved
+                for (let attrName in originalAttributes) {
+                  if (targetElement.getAttribute(attrName) !== originalAttributes[attrName]) {
+                    console.error(`Text edit changed attribute ${attrName}! Restoring...`);
+                    targetElement.setAttribute(attrName, originalAttributes[attrName]);
                   }
                 }
                 
@@ -4263,13 +4323,13 @@
               const fontSizeInput = overlay.querySelector('#fontSizeInput');
               
               if (bgColorInput.value) {
-                el.style.backgroundColor = bgColorInput.value;
+                targetElement.style.backgroundColor = bgColorInput.value;
               }
               if (textColorInput.value) {
-                el.style.color = textColorInput.value;
+                targetElement.style.color = textColorInput.value;
               }
               if (fontSizeInput.value) {
-                el.style.fontSize = fontSizeInput.value;
+                targetElement.style.fontSize = fontSizeInput.value;
               }
               saveToHistory();
             }
@@ -4287,7 +4347,7 @@
                     const b64 = reader.result.split(',')[1];
 
                     // === 1. Delete previous image if needed ===
-                    const prevFile = el.getAttribute('data-image-file');
+                    const prevFile = targetElement.getAttribute('data-image-file');
                     if (prevFile) {
                       try {
                         const res = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${prevFile}`, {
@@ -4322,10 +4382,10 @@
                     await apiCommit(githubPath, b64, `Upload image ${safeName}`);
 
                     // === 3. Apply new image and track it ===
-                    el.setAttribute(attr || 'src', githubPath);
-                    el.setAttribute('data-image-file', githubPath);
+                    targetElement.setAttribute(attr || 'src', githubPath);
+                    targetElement.setAttribute('data-image-file', githubPath);
 
-                    if (tag === 'img') el.src = githubPath;
+                    if (targetTag === 'img') targetElement.src = githubPath;
                     setTimeout(() => attachAllHandlers(doc), 50);
 
                     alert(`✅ Uploaded and linked: ${githubPath}`);
@@ -4340,8 +4400,8 @@
               // Handle URL input
               else if (imageUrlInput.value.trim()) {
                 const imageUrl = imageUrlInput.value.trim();
-                el.setAttribute(attr || 'src', imageUrl);
-                if (tag === 'img') el.src = imageUrl;
+                targetElement.setAttribute(attr || 'src', imageUrl);
+                if (targetTag === 'img') targetElement.src = imageUrl;
                 setTimeout(() => {
                   attachAllHandlers(doc);
                   saveToHistory();
@@ -4352,34 +4412,34 @@
 
 
             else if (choice === 'dormant') {
-              el.classList.add('dormant');
-              el.classList.remove('dormant-revealed');
+              targetElement.classList.add('dormant');
+              targetElement.classList.remove('dormant-revealed');
               if (attr) {
-                el.setAttribute(`data-original-${attr}`, el.getAttribute(attr) || '');
-                el.removeAttribute(attr);
+                targetElement.setAttribute(`data-original-${attr}`, targetElement.getAttribute(attr) || '');
+                targetElement.removeAttribute(attr);
               }
-              if (el.innerText) {
-                el.setAttribute('data-original-text', el.innerText);
-                el.innerText = '';
+              if (targetElement.innerText) {
+                targetElement.setAttribute('data-original-text', targetElement.innerText);
+                targetElement.innerText = '';
               }
               saveToHistory();
             }
 
             else if (choice === 'restore') {
-              el.classList.remove('dormant');
-              el.classList.remove('dormant-revealed');
-              const originalText = el.getAttribute('data-original-text');
+              targetElement.classList.remove('dormant');
+              targetElement.classList.remove('dormant-revealed');
+              const originalText = targetElement.getAttribute('data-original-text');
               if (originalText) {
-                el.innerText = originalText;
-                el.removeAttribute('data-original-text');
+                targetElement.innerText = originalText;
+                targetElement.removeAttribute('data-original-text');
               }
 
               const attrs = ['src', 'href', 'data-link', 'onclick'];
               attrs.forEach(attr => {
-                const original = el.getAttribute(`data-original-${attr}`);
+                const original = targetElement.getAttribute(`data-original-${attr}`);
                 if (original) {
-                  el.setAttribute(attr, original);
-                  el.removeAttribute(`data-original-${attr}`);
+                  targetElement.setAttribute(attr, original);
+                  targetElement.removeAttribute(`data-original-${attr}`);
                 }
               });
               saveToHistory();
@@ -4400,7 +4460,7 @@
               newContainer.style.textAlign = 'center';
               
               // Insert the new container after the clicked element
-              el.parentNode.insertBefore(newContainer, el.nextSibling);
+              targetElement.parentNode.insertBefore(newContainer, targetElement.nextSibling);
               
               insertEditableEmbed(newContainer, embedUrl);
               
@@ -4417,13 +4477,13 @@
             }
 
             else if (choice === 'removeform') {
-              if (el.tagName === 'IFRAME') {
-                el.remove();
+              if (targetElement.tagName === 'IFRAME') {
+                targetElement.remove();
                 saveToHistory();
                 return;
               }
 
-              const iframe = el.querySelector('iframe');
+              const iframe = targetElement.querySelector('iframe');
               if (iframe) {
                 iframe.remove();
                 saveToHistory();
@@ -4466,7 +4526,7 @@
               newContainer.style.textAlign = 'center';
               
               // Insert the new container after the clicked element
-              el.parentNode.insertBefore(newContainer, el.nextSibling);
+              targetElement.parentNode.insertBefore(newContainer, targetElement.nextSibling);
               
               insertEditableEmbed(newContainer, embedUrl);
               
@@ -4483,13 +4543,13 @@
             }
             
             else if (choice === 'copy') {
-              const clonedElement = el.cloneNode(true);
+              const clonedElement = targetElement.cloneNode(true);
               // Remove editor-specific attributes from clone
               clonedElement.removeAttribute('data-editor-attached');
               clonedElement.onclick = null;
               
               // Insert after the original element
-              el.parentNode.insertBefore(clonedElement, el.nextSibling);
+              targetElement.parentNode.insertBefore(clonedElement, targetElement.nextSibling);
               
               // Add visual indicator
               setTimeout(() => {
@@ -4505,7 +4565,7 @@
             
             else if (choice === 'delete') {
               if (confirm('Are you sure you want to delete this element?')) {
-                el.remove();
+                targetElement.remove();
                 saveToHistory();
               }
             }
