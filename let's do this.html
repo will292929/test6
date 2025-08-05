@@ -4210,29 +4210,63 @@
               const newText = textInput.value.trim();
               
               if (newText !== null) {
-                // Only change text content, preserve HTML structure and styling
+                // Preserve all existing HTML structure and styling, only update text content
+                const originalHTML = el.innerHTML;
+                const originalText = el.textContent || el.innerText;
+                
+                if (originalText === newText) {
+                  // No change needed
+                  return;
+                }
+                
+                // If the element only contains plain text (no HTML tags), just update the text
                 if (el.childNodes.length === 1 && el.firstChild.nodeType === Node.TEXT_NODE) {
-                  // If element only contains text, just update the text node
                   el.firstChild.textContent = newText;
                 } else {
-                  // If element has other content, preserve existing structure and only update text nodes
-                  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
-                  const textNodes = [];
-                  let node;
-                  while (node = walker.nextNode()) {
-                    textNodes.push(node);
+                  // For complex HTML structures, we need to be more careful
+                  // First, let's check if we can safely replace the entire content
+                  // by preserving the element's attributes and recreating the structure
+                  
+                  // Store all attributes
+                  const attributes = {};
+                  for (let attr of el.attributes) {
+                    attributes[attr.name] = attr.value;
                   }
                   
-                  if (textNodes.length > 0) {
-                    // Update the first text node with new content
-                    textNodes[0].textContent = newText;
-                    // Remove any additional text nodes to avoid duplication
-                    for (let i = 1; i < textNodes.length; i++) {
-                      textNodes[i].remove();
-                    }
+                  // Create a temporary element to parse the new text as HTML
+                  const tempDiv = document.createElement('div');
+                  tempDiv.innerHTML = newText;
+                  
+                  // If the new text contains HTML tags, use it as-is
+                  if (tempDiv.children.length > 0) {
+                    // The new text contains HTML structure, replace the content
+                    el.innerHTML = newText;
                   } else {
-                    // If no text nodes found, append new text node
-                    el.appendChild(document.createTextNode(newText));
+                    // The new text is plain text, preserve existing HTML structure
+                    // but replace all text nodes with the new text
+                    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+                    const textNodes = [];
+                    let node;
+                    while (node = walker.nextNode()) {
+                      textNodes.push(node);
+                    }
+                    
+                    if (textNodes.length > 0) {
+                      // Replace the first text node with new content
+                      textNodes[0].textContent = newText;
+                      // Remove additional text nodes to avoid duplication
+                      for (let i = 1; i < textNodes.length; i++) {
+                        textNodes[i].remove();
+                      }
+                    } else {
+                      // If no text nodes found, append new text node
+                      el.appendChild(document.createTextNode(newText));
+                    }
+                  }
+                  
+                  // Restore all attributes to ensure styling is preserved
+                  for (let attrName in attributes) {
+                    el.setAttribute(attrName, attributes[attrName]);
                   }
                 }
                 saveToHistory();
