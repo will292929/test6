@@ -4261,24 +4261,31 @@
                   originalAttributes[attr.name] = attr.value;
                 }
                 
-                // Find all text nodes in the element and replace ONLY their content
-                const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT, null, false);
-                const textNodes = [];
-                let node;
-                while (node = walker.nextNode()) {
-                  textNodes.push(node);
-                }
+                // More sophisticated text replacement for complex structures
+                // Check if this element has child elements with their own styling
+                const hasStyledChildren = targetElement.querySelectorAll('*').length > 0;
                 
-                if (textNodes.length > 0) {
-                  // Replace the first text node with new content
-                  textNodes[0].textContent = newText;
-                  // Remove additional text nodes to avoid duplication
-                  for (let i = 1; i < textNodes.length; i++) {
-                    textNodes[i].remove();
+                if (hasStyledChildren) {
+                  // For elements with styled children (like FAQ sections), 
+                  // we need to be very careful to preserve the structure
+                  const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT, null, false);
+                  const textNodes = [];
+                  let node;
+                  while (node = walker.nextNode()) {
+                    textNodes.push(node);
+                  }
+                  
+                  if (textNodes.length > 0) {
+                    // Only replace the first text node to preserve child element styling
+                    textNodes[0].textContent = newText;
+                    // Don't clear other text nodes as they might be part of styled child elements
+                  } else {
+                    // If no text nodes found, append new text node
+                    targetElement.appendChild(document.createTextNode(newText));
                   }
                 } else {
-                  // If no text nodes found, append new text node
-                  targetElement.appendChild(document.createTextNode(newText));
+                  // Simple case: element has only text content
+                  targetElement.textContent = newText;
                 }
                 
                 // CRITICAL: Verify that we haven't lost any styling or structure
@@ -4310,6 +4317,9 @@
                     targetElement.setAttribute(attrName, originalAttributes[attrName]);
                   }
                 }
+                
+                // Force a reflow to ensure styles are applied
+                targetElement.offsetHeight;
                 
                 saveToHistory();
               }
