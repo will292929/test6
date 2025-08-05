@@ -4210,9 +4210,31 @@
               const newText = textInput.value.trim();
               
               if (newText !== null) {
-                // Clear existing content and add new text
-                el.innerHTML = '';
-                el.appendChild(document.createTextNode(newText));
+                // Only change text content, preserve HTML structure and styling
+                if (el.childNodes.length === 1 && el.firstChild.nodeType === Node.TEXT_NODE) {
+                  // If element only contains text, just update the text node
+                  el.firstChild.textContent = newText;
+                } else {
+                  // If element has other content, preserve existing structure and only update text nodes
+                  const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null, false);
+                  const textNodes = [];
+                  let node;
+                  while (node = walker.nextNode()) {
+                    textNodes.push(node);
+                  }
+                  
+                  if (textNodes.length > 0) {
+                    // Update the first text node with new content
+                    textNodes[0].textContent = newText;
+                    // Remove any additional text nodes to avoid duplication
+                    for (let i = 1; i < textNodes.length; i++) {
+                      textNodes[i].remove();
+                    }
+                  } else {
+                    // If no text nodes found, append new text node
+                    el.appendChild(document.createTextNode(newText));
+                  }
+                }
                 saveToHistory();
               }
             }
@@ -4642,6 +4664,20 @@
       return html;
     }
 
+    // UTF-8 to Base64 encoding/decoding helper functions
+    function utf8_to_b64(str) {
+      return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g,
+        function toSolidBytes(match, p1) {
+          return String.fromCharCode('0x' + p1);
+        }));
+    }
+    
+    function b64_to_utf8(str) {
+      return decodeURIComponent(atob(str).split('').map(function(c) {
+        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+    }
+
     async function loadHTML() {
       try {
         const r = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FILE_PATH}`, { 
@@ -4653,7 +4689,7 @@
         }
         
         const j = await r.json();
-        let html = atob(j.content);
+        let html = b64_to_utf8(j.content);
         sha = j.sha;
         
         // Prepare HTML for iframe with CSS isolation
@@ -4880,7 +4916,7 @@
           },
           body: JSON.stringify({
             message: commitMessage,
-            content: btoa(unescape(encodeURIComponent(cleanHtml))),
+            content: utf8_to_b64(cleanHtml),
             branch: BRANCH
           })
         });
@@ -5316,7 +5352,7 @@
         showStatus('💾 Uploading to GitHub...', 0, 'info');
         
         const newHTML = cleanDoc.documentElement.outerHTML;
-        const enc = btoa(unescape(encodeURIComponent(newHTML)));
+        const enc = utf8_to_b64(newHTML);
         await apiCommit(FILE_PATH, enc, 'Commit from editor');
         
         // 🔄 Reload content and restore view
