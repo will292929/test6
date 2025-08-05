@@ -4261,31 +4261,46 @@
                   originalAttributes[attr.name] = attr.value;
                 }
                 
-                // More sophisticated text replacement for complex structures
-                // Check if this element has child elements with their own styling
-                const hasStyledChildren = targetElement.querySelectorAll('*').length > 0;
+                // For complex structures like FAQ sections, we need to be extremely careful
+                // Instead of modifying text nodes directly, we'll use a more robust approach
                 
-                if (hasStyledChildren) {
-                  // For elements with styled children (like FAQ sections), 
-                  // we need to be very careful to preserve the structure
+                // First, check if this element has direct text content (not in child elements)
+                const hasDirectText = targetElement.childNodes.length === 1 && 
+                                    targetElement.childNodes[0].nodeType === Node.TEXT_NODE;
+                
+                if (hasDirectText) {
+                  // Simple case: element has only direct text content
+                  targetElement.textContent = newText;
+                } else {
+                  // Complex case: element has child elements or mixed content
+                  // We need to find the main text content without breaking child element styling
+                  
+                  // Look for the first text node that's not inside a styled child element
                   const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT, null, false);
                   const textNodes = [];
                   let node;
                   while (node = walker.nextNode()) {
-                    textNodes.push(node);
+                    // Check if this text node is directly under the target element (not in a child)
+                    let parent = node.parentNode;
+                    while (parent && parent !== targetElement) {
+                      parent = parent.parentNode;
+                    }
+                    if (parent === targetElement) {
+                      textNodes.push(node);
+                    }
                   }
                   
                   if (textNodes.length > 0) {
-                    // Only replace the first text node to preserve child element styling
+                    // Replace only the first direct text node
                     textNodes[0].textContent = newText;
-                    // Don't clear other text nodes as they might be part of styled child elements
+                    // Clear any other direct text nodes to avoid duplication
+                    for (let i = 1; i < textNodes.length; i++) {
+                      textNodes[i].textContent = '';
+                    }
                   } else {
-                    // If no text nodes found, append new text node
-                    targetElement.appendChild(document.createTextNode(newText));
+                    // If no direct text nodes found, append new text node at the beginning
+                    targetElement.insertBefore(document.createTextNode(newText), targetElement.firstChild);
                   }
-                } else {
-                  // Simple case: element has only text content
-                  targetElement.textContent = newText;
                 }
                 
                 // CRITICAL: Verify that we haven't lost any styling or structure
