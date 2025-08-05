@@ -4371,49 +4371,56 @@
                   try {
                     const b64 = reader.result.split(',')[1];
 
-                    // === 1. Delete previous image if needed ===
-                    const prevFile = targetElement.getAttribute('data-image-file');
-                    if (prevFile) {
-                      try {
-                        const res = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${prevFile}`, {
-                          method: 'GET',
-                          headers: { 'Authorization': `Bearer ${TOKEN}` }
-                        });
-                        if (res.ok) {
-                          const data = await res.json();
-                          const deleteRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${prevFile}`, {
-                            method: 'DELETE',
-                            headers: {
-                              'Authorization': `Bearer ${TOKEN}`,
-                              'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                              message: `Delete old image ${prevFile}`,
-                              sha: data.sha,
-                              branch: BRANCH
-                            })
-                          });
-                          if (!deleteRes.ok) throw new Error("Could not delete previous image");
-                        }
-                      } catch (err) {
-                        console.warn("No previous image to delete or failed to delete:", err.message);
-                      }
-                    }
-
-                    // === 2. Upload new image ===
+                    // === 1. Upload new image ===
                     const safeName = `img_${Date.now()}_${file.name.replace(/[^a-z0-9.\-_]/gi, '_').toLowerCase()}`;
                     const githubPath = `images/${safeName}`;
 
                     await apiCommit(githubPath, b64, `Upload image ${safeName}`);
 
-                    // === 3. Apply new image and track it ===
+                    // === 2. Replace the existing image source ===
+                    // Store the old source for potential cleanup (but don't block on it)
+                    const oldSrc = targetElement.getAttribute(attr || 'src') || targetElement.src;
+                    
+                    // Update the image source
                     targetElement.setAttribute(attr || 'src', githubPath);
                     targetElement.setAttribute('data-image-file', githubPath);
-
                     if (targetTag === 'img') targetElement.src = githubPath;
-                    setTimeout(() => attachAllHandlers(doc), 50);
+                    
+                    // Try to clean up old image if it was uploaded through this system
+                    const prevFile = targetElement.getAttribute('data-image-file');
+                    if (prevFile && prevFile !== githubPath) {
+                      // Clean up in background - don't block the user
+                      setTimeout(async () => {
+                        try {
+                          const res = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${prevFile}`, {
+                            method: 'GET',
+                            headers: { 'Authorization': `Bearer ${TOKEN}` }
+                          });
+                          if (res.ok) {
+                            const data = await res.json();
+                            await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${prevFile}`, {
+                              method: 'DELETE',
+                              headers: {
+                                'Authorization': `Bearer ${TOKEN}`,
+                                'Content-Type': 'application/json'
+                              },
+                              body: JSON.stringify({
+                                message: `Delete old image ${prevFile}`,
+                                sha: data.sha,
+                                branch: BRANCH
+                              })
+                            });
+                          }
+                        } catch (err) {
+                          console.warn("Failed to clean up old image:", err.message);
+                        }
+                      }, 1000);
+                    }
 
-                    alert(`✅ Uploaded and linked: ${githubPath}`);
+                    setTimeout(() => attachAllHandlers(doc), 50);
+                    saveToHistory();
+
+                    alert(`✅ Image replaced successfully!`);
                   } catch (err) {
                     alert('❌ Upload failed: ' + err.message);
                   }
@@ -4425,12 +4432,23 @@
               // Handle URL input
               else if (imageUrlInput.value.trim()) {
                 const imageUrl = imageUrlInput.value.trim();
+                
+                // Store the old source for reference
+                const oldSrc = targetElement.getAttribute(attr || 'src') || targetElement.src;
+                
+                // Replace the image source
                 targetElement.setAttribute(attr || 'src', imageUrl);
                 if (targetTag === 'img') targetElement.src = imageUrl;
+                
+                // Clear the data-image-file attribute since this is now an external URL
+                targetElement.removeAttribute('data-image-file');
+                
                 setTimeout(() => {
                   attachAllHandlers(doc);
                   saveToHistory();
                 }, 50);
+                
+                alert(`✅ Image replaced with URL!`);
               }
             }
 
