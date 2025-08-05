@@ -4261,45 +4261,70 @@
                   originalAttributes[attr.name] = attr.value;
                 }
                 
-                // For complex structures like FAQ sections, we need to be extremely careful
-                // Instead of modifying text nodes directly, we'll use a more robust approach
+                // For FAQ subheaders and other complex elements, we need a more conservative approach
+                // The key insight is that FAQ subheaders often have complex CSS styling that gets lost
+                // when we manipulate text nodes directly. We need to preserve the element's styling context.
                 
-                // First, check if this element has direct text content (not in child elements)
-                const hasDirectText = targetElement.childNodes.length === 1 && 
-                                    targetElement.childNodes[0].nodeType === Node.TEXT_NODE;
+                // Store the complete original state for verification
+                const originalHTML = targetElement.innerHTML;
                 
-                if (hasDirectText) {
-                  // Simple case: element has only direct text content
-                  targetElement.textContent = newText;
-                } else {
-                  // Complex case: element has child elements or mixed content
-                  // We need to find the main text content without breaking child element styling
+                // For elements with complex styling (like FAQ subheaders), we need to be very careful
+                // The safest approach is to preserve the element's styling and only change the text content
+                
+                // Check if this element has child elements with their own styling
+                const hasStyledChildren = targetElement.querySelectorAll('*').length > 0;
+                
+                if (hasStyledChildren) {
+                  // For elements with styled children (like FAQ sections), we need to be extremely careful
+                  // Instead of modifying the DOM structure, we'll use a text replacement approach
                   
-                  // Look for the first text node that's not inside a styled child element
+                  // Find all text nodes in the element
                   const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT, null, false);
                   const textNodes = [];
                   let node;
                   while (node = walker.nextNode()) {
-                    // Check if this text node is directly under the target element (not in a child)
-                    let parent = node.parentNode;
-                    while (parent && parent !== targetElement) {
-                      parent = parent.parentNode;
-                    }
-                    if (parent === targetElement) {
-                      textNodes.push(node);
-                    }
+                    textNodes.push(node);
                   }
                   
                   if (textNodes.length > 0) {
-                    // Replace only the first direct text node
+                    // Replace the first text node with the new text
                     textNodes[0].textContent = newText;
-                    // Clear any other direct text nodes to avoid duplication
+                    
+                    // Remove all other text nodes to avoid duplication
                     for (let i = 1; i < textNodes.length; i++) {
                       textNodes[i].textContent = '';
                     }
                   } else {
-                    // If no direct text nodes found, append new text node at the beginning
+                    // If no text nodes found, create a new one at the beginning
                     targetElement.insertBefore(document.createTextNode(newText), targetElement.firstChild);
+                  }
+                } else {
+                  // Simple case: element has only text content
+                  // For FAQ subheaders, we need to be extra careful about preserving styling
+                  // Use a more conservative approach that preserves the element's styling context
+                  
+                  // Store the current computed styles before making changes
+                  const computedStyle = window.getComputedStyle(targetElement);
+                  const fontSize = computedStyle.fontSize;
+                  const fontFamily = computedStyle.fontFamily;
+                  const color = computedStyle.color;
+                  const fontWeight = computedStyle.fontWeight;
+                  
+                  // Update the text content
+                  targetElement.textContent = newText;
+                  
+                  // Explicitly restore the styling if it was lost
+                  if (targetElement.style.fontSize !== fontSize) {
+                    targetElement.style.fontSize = fontSize;
+                  }
+                  if (targetElement.style.fontFamily !== fontFamily) {
+                    targetElement.style.fontFamily = fontFamily;
+                  }
+                  if (targetElement.style.color !== color) {
+                    targetElement.style.color = color;
+                  }
+                  if (targetElement.style.fontWeight !== fontWeight) {
+                    targetElement.style.fontWeight = fontWeight;
                   }
                 }
                 
