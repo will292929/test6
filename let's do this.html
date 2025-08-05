@@ -4736,15 +4736,26 @@
 
       try {
         // Always get the current SHA for the file we're committing
+        // Add a small delay to avoid race conditions
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        console.log(`Getting SHA for file: ${path}`);
         const shaRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`, {
           headers: { 'Authorization': `Bearer ${TOKEN}` }
         });
         if (shaRes.ok) {
           const data = await shaRes.json();
           fileSha = data.sha;
+          console.log(`Got SHA: ${fileSha}`);
+          // Update global sha if this is the main file
+          if (path === FILE_PATH) {
+            sha = data.sha;
+            console.log(`Updated global SHA: ${sha}`);
+          }
         } else if (shaRes.status === 404) {
           // File doesn't exist yet, that's okay for new files
           fileSha = undefined;
+          console.log('File does not exist yet, no SHA needed');
         } else {
           throw new Error(`Failed to get file SHA: ${shaRes.status} ${shaRes.statusText}`);
         }
@@ -4765,10 +4776,68 @@
 
         if (!res.ok) {
           const errorData = await res.json();
+          console.error('GitHub API error response:', errorData);
+          
+          // If it's a SHA mismatch error, try to refresh the SHA and retry once
+          if (errorData.message && errorData.message.includes('sha') && path === FILE_PATH) {
+            console.log('SHA mismatch detected, refreshing and retrying...');
+            sha = ''; // Clear the cached SHA
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait a bit longer
+            
+            // Retry with fresh SHA
+            const retryShaRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`, {
+              headers: { 'Authorization': `Bearer ${TOKEN}` }
+            });
+            if (retryShaRes.ok) {
+              const retryData = await retryShaRes.json();
+              fileSha = retryData.sha;
+              sha = retryData.sha;
+              console.log(`Retry with new SHA: ${fileSha}`);
+              
+              const retryRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`, {
+                method: 'PUT',
+                headers: {
+                  'Authorization': `Bearer ${TOKEN}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  message,
+                  content: contentB64,
+                  sha: fileSha,
+                  branch: BRANCH
+                })
+              });
+              
+              if (!retryRes.ok) {
+                const retryErrorData = await retryRes.json();
+                throw new Error(`GitHub API error (retry): ${retryErrorData.message || retryRes.statusText}`);
+              }
+              
+              const retryResult = await retryRes.json();
+              console.log('Retry commit successful:', retryResult);
+              
+              if (path === FILE_PATH && retryResult.content && retryResult.content.sha) {
+                sha = retryResult.content.sha;
+                console.log(`Updated global SHA after retry commit: ${sha}`);
+              }
+              
+              return retryResult;
+            }
+          }
+          
           throw new Error(`GitHub API error: ${errorData.message || res.statusText}`);
         }
 
-        return await res.json();
+        const result = await res.json();
+        console.log('Commit successful:', result);
+        
+        // Update global sha after successful commit if this is the main file
+        if (path === FILE_PATH && result.content && result.content.sha) {
+          sha = result.content.sha;
+          console.log(`Updated global SHA after commit: ${sha}`);
+        }
+
+        return result;
       } catch (error) {
         console.error('API commit failed:', error);
         throw error;
@@ -5497,7 +5566,11 @@
         
         const newHTML = cleanDoc.documentElement.outerHTML;
         const enc = utf8_to_b64(newHTML);
-        await apiCommit(FILE_PATH, enc, 'Commit from editor');
+        const commitResult = await apiCommit(FILE_PATH, enc, 'Commit from editor');
+        
+        // Force refresh the SHA to ensure it's up to date
+        console.log('Commit successful, refreshing SHA...');
+        sha = ''; // Clear the SHA to force a fresh fetch
         
         // 🔄 Reload content and restore view
         showProgress(90);
