@@ -4183,71 +4183,47 @@
                   originalAttributes[attr.name] = attr.value;
                 }
                 
-                // For FAQ subheaders and other complex elements, we need a more conservative approach
-                // The key insight is that FAQ subheaders often have complex CSS styling that gets lost
-                // when we manipulate text nodes directly. We need to preserve the element's styling context.
+                // For complex content like FAQ sections and styled lists, we need a much simpler approach
+                // The key is to preserve the element's CSS classes and only change the text content
+                // without touching any child elements or complex styling
                 
-                // Store the complete original state for verification
-                const originalHTML = targetElement.innerHTML;
+                // For complex elements, we'll use a very conservative approach:
+                // 1. Keep all child elements intact
+                // 2. Only replace direct text content
+                // 3. Preserve all CSS classes and styling
                 
-                // For elements with complex styling (like FAQ subheaders), we need to be very careful
-                // The safest approach is to preserve the element's styling and only change the text content
+                // Check if this element has child elements
+                const hasChildren = targetElement.children.length > 0;
                 
-                // Check if this element has child elements with their own styling
-                const hasStyledChildren = targetElement.querySelectorAll('*').length > 0;
-                
-                if (hasStyledChildren) {
-                  // For elements with styled children (like FAQ sections), we need to be extremely careful
-                  // Instead of modifying the DOM structure, we'll use a text replacement approach
+                if (hasChildren) {
+                  // For elements with children (like FAQ sections), we need to be very careful
+                  // We'll only replace direct text nodes, not child elements
                   
-                  // Find all text nodes in the element
-                  const walker = document.createTreeWalker(targetElement, NodeFilter.SHOW_TEXT, null, false);
-                  const textNodes = [];
-                  let node;
-                  while (node = walker.nextNode()) {
-                    textNodes.push(node);
+                  // Find direct text nodes (not inside child elements)
+                  const directTextNodes = [];
+                  for (let i = 0; i < targetElement.childNodes.length; i++) {
+                    const child = targetElement.childNodes[i];
+                    if (child.nodeType === Node.TEXT_NODE) {
+                      directTextNodes.push(child);
+                    }
                   }
                   
-                  if (textNodes.length > 0) {
-                    // Replace the first text node with the new text
-                    textNodes[0].textContent = newText;
+                  if (directTextNodes.length > 0) {
+                    // Replace only the first direct text node
+                    directTextNodes[0].textContent = newText;
                     
-                    // Remove all other text nodes to avoid duplication
-                    for (let i = 1; i < textNodes.length; i++) {
-                      textNodes[i].textContent = '';
+                    // Clear other direct text nodes to avoid duplication
+                    for (let i = 1; i < directTextNodes.length; i++) {
+                      directTextNodes[i].textContent = '';
                     }
                   } else {
-                    // If no text nodes found, create a new one at the beginning
+                    // If no direct text nodes, add the new text at the beginning
                     targetElement.insertBefore(document.createTextNode(newText), targetElement.firstChild);
                   }
                 } else {
                   // Simple case: element has only text content
-                  // For FAQ subheaders, we need to be extra careful about preserving styling
-                  // Use a more conservative approach that preserves the element's styling context
-                  
-                  // Store the current computed styles before making changes
-                  const computedStyle = window.getComputedStyle(targetElement);
-                  const fontSize = computedStyle.fontSize;
-                  const fontFamily = computedStyle.fontFamily;
-                  const color = computedStyle.color;
-                  const fontWeight = computedStyle.fontWeight;
-                  
-                  // Update the text content
+                  // Just replace the text content directly
                   targetElement.textContent = newText;
-                  
-                  // Explicitly restore the styling if it was lost
-                  if (targetElement.style.fontSize !== fontSize) {
-                    targetElement.style.fontSize = fontSize;
-                  }
-                  if (targetElement.style.fontFamily !== fontFamily) {
-                    targetElement.style.fontFamily = fontFamily;
-                  }
-                  if (targetElement.style.color !== color) {
-                    targetElement.style.color = color;
-                  }
-                  if (targetElement.style.fontWeight !== fontWeight) {
-                    targetElement.style.fontWeight = fontWeight;
-                  }
                 }
                 
                 // CRITICAL: Verify that we haven't lost any styling or structure
@@ -4660,47 +4636,86 @@
 
 
 
-    const dormantBtn = document.createElement('button');
-    dormantBtn.textContent = "👁️ Show Dormant";
-    dormantBtn.style.position = "fixed";
-    dormantBtn.style.bottom = "100px";
-    dormantBtn.style.right = "20px";
-    dormantBtn.style.width = "130px";
-    dormantBtn.style.height = "60px";
-    dormantBtn.style.zIndex = "9999";
-    dormantBtn.style.padding = "16px 20px";
-    dormantBtn.style.background = "#000000";
-    dormantBtn.style.color = "white";
-    dormantBtn.style.border = "2px solid #dc3545";
-    dormantBtn.style.cursor = "pointer";
-    dormantBtn.style.fontWeight = "700";
-    dormantBtn.style.boxShadow = "0 10px 30px rgba(0, 0, 0, 0.4)";
-    dormantBtn.style.transition = "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
-    dormantBtn.style.backdropFilter = "blur(15px)";
-    dormantBtn.style.textTransform = "uppercase";
-    dormantBtn.style.letterSpacing = "0.5px";
-    dormantBtn.style.overflow = "hidden";
-    dormantBtn.style.animation = "slideIn 0.6s ease-out 0.4s both";
-    dormantBtn.style.clipPath = "polygon(20% 0%, 80% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%)";
-    dormantBtn.style.transform = "rotate(0deg)";
-    document.body.appendChild(dormantBtn);
+    window.dormantBtn = document.createElement('button');
+    window.dormantBtn.textContent = "👁️ Show Dormant";
+    window.dormantBtn.style.position = "fixed";
+    window.dormantBtn.style.bottom = "100px";
+    window.dormantBtn.style.right = "20px";
+    window.dormantBtn.style.width = "130px";
+    window.dormantBtn.style.height = "60px";
+    window.dormantBtn.style.zIndex = "9999";
+    window.dormantBtn.style.padding = "16px 20px";
+    window.dormantBtn.style.background = "#000000";
+    window.dormantBtn.style.color = "white";
+    window.dormantBtn.style.border = "2px solid #dc3545";
+    window.dormantBtn.style.cursor = "pointer";
+    window.dormantBtn.style.fontWeight = "700";
+    window.dormantBtn.style.boxShadow = "0 10px 30px rgba(0, 0, 0, 0.4)";
+    window.dormantBtn.style.transition = "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+    window.dormantBtn.style.backdropFilter = "blur(15px)";
+    window.dormantBtn.style.textTransform = "uppercase";
+    window.dormantBtn.style.letterSpacing = "0.5px";
+    window.dormantBtn.style.overflow = "hidden";
+    window.dormantBtn.style.animation = "slideIn 0.6s ease-out 0.4s both";
+    window.dormantBtn.style.clipPath = "polygon(20% 0%, 80% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%)";
+    window.dormantBtn.style.transform = "rotate(0deg)";
+    document.body.appendChild(window.dormantBtn);
     let dormantVisible = false;
     
     // Function to check if dormant elements exist and show/hide button accordingly
-    function updateDormantButtonVisibility() {
+    window.updateDormantButtonVisibility = function() {
+      // Ensure the button exists
+      if (!window.dormantBtn) {
+        console.log('Dormant button not found, creating it...');
+        window.dormantBtn = document.createElement('button');
+        window.dormantBtn.textContent = "👁️ Show Dormant";
+        window.dormantBtn.style.position = "fixed";
+        window.dormantBtn.style.bottom = "100px";
+        window.dormantBtn.style.right = "20px";
+        window.dormantBtn.style.width = "130px";
+        window.dormantBtn.style.height = "60px";
+        window.dormantBtn.style.zIndex = "9999";
+        window.dormantBtn.style.padding = "16px 20px";
+        window.dormantBtn.style.background = "#000000";
+        window.dormantBtn.style.color = "white";
+        window.dormantBtn.style.border = "2px solid #dc3545";
+        window.dormantBtn.style.cursor = "pointer";
+        window.dormantBtn.style.fontWeight = "700";
+        window.dormantBtn.style.boxShadow = "0 10px 30px rgba(0, 0, 0, 0.4)";
+        window.dormantBtn.style.transition = "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+        window.dormantBtn.style.backdropFilter = "blur(15px)";
+        window.dormantBtn.style.textTransform = "uppercase";
+        window.dormantBtn.style.letterSpacing = "0.5px";
+        window.dormantBtn.style.overflow = "hidden";
+        window.dormantBtn.style.animation = "slideIn 0.6s ease-out 0.4s both";
+        window.dormantBtn.style.clipPath = "polygon(20% 0%, 80% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%)";
+        window.dormantBtn.style.transform = "rotate(0deg)";
+        document.body.appendChild(window.dormantBtn);
+        
+        // Set up the click handler
+        window.dormantBtn.onclick = () => {
+          dormantVisible = !dormantVisible;
+          showDormantElements(dormantVisible);
+          window.dormantBtn.textContent = dormantVisible ? "🙈 Hide Dormant" : "👁️ Show Dormant";
+        };
+      }
+      
       const doc = frame.contentDocument || frame.contentWindow.document;
       const dormantElements = doc.querySelectorAll('.dormant, .dormant-revealed');
+      console.log(`Found ${dormantElements.length} dormant elements`);
       if (dormantElements.length > 0) {
-        dormantBtn.style.display = 'block';
+        window.dormantBtn.style.display = 'block';
+        console.log('Showing dormant button');
       } else {
-        dormantBtn.style.display = 'none';
+        window.dormantBtn.style.display = 'none';
+        console.log('Hiding dormant button');
       }
-    }
+    };
     
-    dormantBtn.onclick = () => {
+    window.dormantBtn.onclick = () => {
       dormantVisible = !dormantVisible;
       showDormantElements(dormantVisible);
-      dormantBtn.textContent = dormantVisible ? "🙈 Hide Dormant" : "👁️ Show Dormant";
+      window.dormantBtn.textContent = dormantVisible ? "🙈 Hide Dormant" : "👁️ Show Dormant";
     };
 
 
