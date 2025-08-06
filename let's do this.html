@@ -3423,102 +3423,24 @@
         Array.from(existingElements).forEach(el => el.remove());
       }
 
-      // Create a wrapper div to hold the iframe and edit button
-      const wrapper = doc.createElement('div');
-      wrapper.style.position = 'relative';
-      wrapper.style.display = 'inline-block';
-      wrapper.style.width = width;
-      wrapper.style.height = height;
-      wrapper.style.maxWidth = '100%';
-
-      // Create a simple, clean iframe
+      // Create a simple, clean iframe that will work with the main editor system
       const iframe = doc.createElement('iframe');
       iframe.src = embedUrl;
-      iframe.style.width = '100%';
-      iframe.style.height = '100%';
+      iframe.style.width = width;
+      iframe.style.height = height;
       iframe.style.border = "none";
       iframe.style.display = "block";
       iframe.style.margin = "0";
       iframe.style.boxSizing = "border-box";
+      iframe.style.maxWidth = "100%";
       
-      // Create a small edit button that appears in the top-right corner
-      const editButton = doc.createElement('button');
-      editButton.innerHTML = '✏️';
-      editButton.style.position = 'absolute';
-      editButton.style.top = '5px';
-      editButton.style.right = '5px';
-      editButton.style.zIndex = '1000';
-      editButton.style.background = '#007bff';
-      editButton.style.color = 'white';
-      editButton.style.border = 'none';
-      editButton.style.borderRadius = '3px';
-      editButton.style.padding = '3px 6px';
-      editButton.style.fontSize = '12px';
-      editButton.style.cursor = 'pointer';
-      editButton.style.opacity = '0';
-      editButton.style.transition = 'opacity 0.2s ease';
+      // Add the iframe directly to the container
+      container.appendChild(iframe);
       
-      // Show button on hover
-      wrapper.onmouseenter = () => {
-        editButton.style.opacity = '1';
-      };
-      
-      wrapper.onmouseleave = () => {
-        editButton.style.opacity = '0';
-      };
-      
-      // Add click handler to the edit button
-      editButton.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // Show edit options
-        doc.querySelectorAll('.edit-backdrop, .edit-overlay').forEach(x => x.remove());
-
-        const overlayBox = doc.createElement('div');
-        const backdrop = doc.createElement('div');
-        
-        // Set dynamic z-index for iframe context
-        const popupZ = getNextPopupZIndex();
-        const backdropZ = getNextBackdropZIndex();
-        
-        overlayBox.className = 'edit-overlay';
-        backdrop.className = 'edit-backdrop';
-        
-        overlayBox.style.setProperty('--popup-z-index', popupZ);
-        backdrop.style.setProperty('--backdrop-z-index', backdropZ);
-
-        overlayBox.innerHTML = `
-          <label>Edit Embed:</label>
-          <select id="editChoice">
-            <option value="">Cancel</option>
-            <option value="remove">Remove Embed</option>
-          </select>
-          <button id="editOk">OK</button>
-        `;
-
-        document.body.append(backdrop, overlayBox);
-
-        backdrop.onclick = () => {
-          overlayBox.remove();
-          backdrop.remove();
-        };
-
-        doc.getElementById('editOk').onclick = () => {
-          const choice = doc.getElementById('editChoice').value;
-          overlayBox.remove();
-          backdrop.remove();
-
-          if (choice === 'remove') {
-            wrapper.remove();
-            setTimeout(() => attachAllHandlers(doc), 0);
-          }
-        };
-      };
-
-      wrapper.appendChild(iframe);
-      wrapper.appendChild(editButton);
-      container.appendChild(wrapper);
+      // Now attach the main editor handlers to make it clickable
+      setTimeout(() => {
+        attachAllHandlers(doc);
+      }, 100);
     }
     function upgradeAllIframes(doc) {
       console.log('=== Starting iframe upgrade process ===');
@@ -4491,6 +4413,11 @@
                 targetElement.innerText = '';
               }
               saveToHistory();
+              
+              // Update dormant button visibility
+              if (typeof updateDormantButtonVisibility === 'function') {
+                updateDormantButtonVisibility();
+              }
             }
 
             else if (choice === 'restore') {
@@ -4511,12 +4438,26 @@
                 }
               });
               saveToHistory();
+              
+              // Update dormant button visibility
+              if (typeof updateDormantButtonVisibility === 'function') {
+                updateDormantButtonVisibility();
+              }
             }
 
             else if (choice === 'googleform') {
               const googleFormUrlInput = overlay.querySelector('#googleFormUrlInput');
-              const formUrl = googleFormUrlInput.value.trim();
+              let formUrl = googleFormUrlInput.value.trim();
               if (!formUrl) return;
+
+              // Clean up the URL - remove any trailing characters and fix common issues
+              formUrl = formUrl.replace(/[">\s]+$/, ''); // Remove trailing quotes, >, and whitespace
+              
+              // Ensure it's a valid Google Form URL
+              if (!formUrl.includes('docs.google.com/forms/')) {
+                alert('❌ Please enter a valid Google Form URL');
+                return;
+              }
 
               const embedUrl = formUrl.includes("embedded=true")
                 ? formUrl
@@ -4548,6 +4489,11 @@
               if (targetElement.tagName === 'IFRAME') {
                 targetElement.remove();
                 saveToHistory();
+                
+                // Update dormant button visibility
+                if (typeof updateDormantButtonVisibility === 'function') {
+                  updateDormantButtonVisibility();
+                }
                 return;
               }
 
@@ -4555,6 +4501,11 @@
               if (iframe) {
                 iframe.remove();
                 saveToHistory();
+                
+                // Update dormant button visibility
+                if (typeof updateDormantButtonVisibility === 'function') {
+                  updateDormantButtonVisibility();
+                }
               } else {
                 alert("⚠️ No embedded form found in this element.");
               }
@@ -4635,6 +4586,11 @@
               if (confirm('Are you sure you want to delete this element?')) {
                 targetElement.remove();
                 saveToHistory();
+                
+                // Update dormant button visibility
+                if (typeof updateDormantButtonVisibility === 'function') {
+                  updateDormantButtonVisibility();
+                }
               }
             }
 
@@ -4693,6 +4649,11 @@
       });
 
       attachAllHandlers(doc);
+      
+      // Update button visibility after changing dormant elements
+      if (typeof updateDormantButtonVisibility === 'function') {
+        updateDormantButtonVisibility();
+      }
     }
 
 
@@ -4724,6 +4685,18 @@
     dormantBtn.style.transform = "rotate(0deg)";
     document.body.appendChild(dormantBtn);
     let dormantVisible = false;
+    
+    // Function to check if dormant elements exist and show/hide button accordingly
+    function updateDormantButtonVisibility() {
+      const doc = frame.contentDocument || frame.contentWindow.document;
+      const dormantElements = doc.querySelectorAll('.dormant, .dormant-revealed');
+      if (dormantElements.length > 0) {
+        dormantBtn.style.display = 'block';
+      } else {
+        dormantBtn.style.display = 'none';
+      }
+    }
+    
     dormantBtn.onclick = () => {
       dormantVisible = !dormantVisible;
       showDormantElements(dormantVisible);
@@ -4735,54 +4708,67 @@
       let fileSha = undefined;
 
       try {
-        // Always get the current SHA for the file we're committing
-        // Add a small delay to avoid race conditions
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        console.log(`Getting SHA for file: ${path}`);
-        const shaRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`, {
-          headers: { 'Authorization': `Bearer ${TOKEN}` }
-        });
-        if (shaRes.ok) {
-          const data = await shaRes.json();
-          fileSha = data.sha;
-          console.log(`Got SHA: ${fileSha}`);
-          // Update global sha if this is the main file
-          if (path === FILE_PATH) {
-            sha = data.sha;
-            console.log(`Updated global SHA: ${sha}`);
-          }
-        } else if (shaRes.status === 404) {
-          // File doesn't exist yet, that's okay for new files
-          fileSha = undefined;
-          console.log('File does not exist yet, no SHA needed');
+        // For the main file, try to use the cached SHA first, then fall back to fetching
+        if (path === FILE_PATH && sha) {
+          console.log(`Using cached SHA for main file: ${sha}`);
+          fileSha = sha;
         } else {
-          throw new Error(`Failed to get file SHA: ${shaRes.status} ${shaRes.statusText}`);
+          // Always get the current SHA for the file we're committing
+          // Add a small delay to avoid race conditions
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+          console.log(`Getting SHA for file: ${path}`);
+          const shaRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`, {
+            headers: { 'Authorization': `Bearer ${TOKEN}` }
+          });
+          if (shaRes.ok) {
+            const data = await shaRes.json();
+            fileSha = data.sha;
+            console.log(`Got SHA: ${fileSha}`);
+            // Update global sha if this is the main file
+            if (path === FILE_PATH) {
+              sha = data.sha;
+              console.log(`Updated global SHA: ${sha}`);
+            }
+          } else if (shaRes.status === 404) {
+            // File doesn't exist yet, that's okay for new files
+            fileSha = undefined;
+            console.log('File does not exist yet, no SHA needed');
+          } else {
+            throw new Error(`Failed to get file SHA: ${shaRes.status} ${shaRes.statusText}`);
+          }
         }
 
+        // Prepare the commit payload
+        const commitPayload = {
+          message,
+          content: contentB64,
+          branch: BRANCH
+        };
+        
+        // Only include SHA if we have one
+        if (fileSha) {
+          commitPayload.sha = fileSha;
+        }
+        
         const res = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${TOKEN}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({
-            message,
-            content: contentB64,
-            sha: fileSha,
-            branch: BRANCH
-          })
+          body: JSON.stringify(commitPayload)
         });
 
         if (!res.ok) {
           const errorData = await res.json();
           console.error('GitHub API error response:', errorData);
           
-          // If it's a SHA mismatch error, try to refresh the SHA and retry once
-          if (errorData.message && errorData.message.includes('sha') && path === FILE_PATH) {
-            console.log('SHA mismatch detected, refreshing and retrying...');
+          // If it's a SHA mismatch error or any other error, try to refresh the SHA and retry once
+          if (path === FILE_PATH) {
+            console.log('Commit failed, refreshing SHA and retrying...');
             sha = ''; // Clear the cached SHA
-            await new Promise(resolve => setTimeout(resolve, 500)); // Wait a bit longer
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait longer for retry
             
             // Retry with fresh SHA
             const retryShaRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`, {
@@ -4794,18 +4780,25 @@
               sha = retryData.sha;
               console.log(`Retry with new SHA: ${fileSha}`);
               
+              // Prepare the retry commit payload
+              const retryCommitPayload = {
+                message,
+                content: contentB64,
+                branch: BRANCH
+              };
+              
+              // Only include SHA if we have one
+              if (fileSha) {
+                retryCommitPayload.sha = fileSha;
+              }
+              
               const retryRes = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${path}`, {
                 method: 'PUT',
                 headers: {
                   'Authorization': `Bearer ${TOKEN}`,
                   'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                  message,
-                  content: contentB64,
-                  sha: fileSha,
-                  branch: BRANCH
-                })
+                body: JSON.stringify(retryCommitPayload)
               });
               
               if (!retryRes.ok) {
@@ -4822,6 +4815,8 @@
               }
               
               return retryResult;
+            } else {
+              console.log('Failed to get SHA for retry:', retryShaRes.status);
             }
           }
           
@@ -4905,6 +4900,21 @@
         let html = b64_to_utf8(j.content);
         sha = j.sha;
         
+        // Fix incomplete iframe tags
+        html = html.replace(/<iframe\s+src="([^"]*?docs\.google\.com\/forms\/[^"]*?)(?:\s*$|(?:\s*[^>]*)?>)/gi, 
+          (match, src) => {
+            // Clean up the src URL
+            let cleanSrc = src.replace(/[">\s]+$/, '');
+            
+            // Add embedded=true if not present
+            if (!cleanSrc.includes('embedded=true')) {
+              cleanSrc = cleanSrc.replace('/viewform', '/viewform?embedded=true');
+            }
+            
+            return `<iframe src="${cleanSrc}" width="100%" height="500px" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>`;
+          }
+        );
+        
         // Prepare HTML for iframe with CSS isolation
         html = prepareIframeHTML(html);
         
@@ -4934,6 +4944,12 @@
       doc.addEventListener('keyup', ev => { if (ev.code === 'Space') doc._iframeSpaceHeld = false; });
       showDormantElements(dormantVisible);
       attachAllHandlers(doc);
+      
+      // Update dormant button visibility after setup
+      if (typeof updateDormantButtonVisibility === 'function') {
+        updateDormantButtonVisibility();
+      }
+      
       console.log('Frame setup complete');
       
       // Initialize history with current state
@@ -5571,6 +5587,13 @@
         // Force refresh the SHA to ensure it's up to date
         console.log('Commit successful, refreshing SHA...');
         sha = ''; // Clear the SHA to force a fresh fetch
+        
+        // Clear any cached state that might interfere with subsequent commits
+        console.log('Clearing cached state...');
+        
+        // Reset all state variables that might interfere
+        isPublishing = false;
+        publishBtn.disabled = false;
         
         // 🔄 Reload content and restore view
         showProgress(90);
