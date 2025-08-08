@@ -3485,19 +3485,11 @@
     function upgradeAllIframes(doc) {
       console.log('=== Starting iframe upgrade process ===');
       
-      // First, clean any existing iframes that might have old editor attributes
+      // Do not strip editor markers/styles; keep wrapping stable to avoid flicker
+      // If any legacy attributes exist, just normalize minimally without removing markers
       const existingIframes = doc.querySelectorAll('iframe');
       existingIframes.forEach(iframe => {
-        // Remove any old editor attributes
-        iframe.removeAttribute('data-embed-id');
-        iframe.removeAttribute('data-editor-attached');
         iframe.classList.remove('editable-form-embed', 'editable-embed');
-        
-        // Clean up any old styles
-        iframe.style.outline = '';
-        iframe.style.transition = '';
-        iframe.style.zIndex = '';
-        iframe.style.pointerEvents = '';
       });
       
       // Find all iframes that need to be made editable
@@ -3595,7 +3587,7 @@
         overlay.style.width = '100%';
         overlay.style.height = '100%';
         overlay.style.zIndex = '999';
-        overlay.style.backgroundColor = 'transparent';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.001)';
         overlay.style.cursor = 'pointer';
         overlay.style.opacity = '0';
         overlay.style.transition = 'opacity 0.2s ease';
@@ -3603,11 +3595,13 @@
         
         // Show button and overlay on hover
         wrapper.onmouseenter = () => {
+          if (window.isEditorModalOpen) return;
           editButton.style.opacity = '1';
           overlay.style.opacity = '0.1';
         };
         
         wrapper.onmouseleave = () => {
+          if (window.isEditorModalOpen) return;
           editButton.style.opacity = '0';
           overlay.style.opacity = '0';
         };
@@ -3616,6 +3610,7 @@
         overlay.onclick = (e) => {
           e.preventDefault();
           e.stopPropagation();
+          if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
           editButton.click();
         };
         
@@ -3631,6 +3626,12 @@
           overlayBox.className = 'edit-overlay';
           const backdrop = document.createElement('div');
           backdrop.className = 'edit-backdrop';
+          window.isEditorModalOpen = true;
+          // Force overlays to be fixed and above everything
+          overlayBox.style.position = 'fixed';
+          overlayBox.style.zIndex = '2147483647';
+          backdrop.style.position = 'fixed';
+          backdrop.style.zIndex = '2147483646';
 
           overlayBox.innerHTML = `
             <h3>Edit Iframe</h3>
@@ -3668,6 +3669,7 @@
           backdrop.onclick = () => {
             overlayBox.remove();
             backdrop.remove();
+            window.isEditorModalOpen = false;
           };
 
           // Apply Changes button
@@ -3697,6 +3699,7 @@
             
             overlayBox.remove();
             backdrop.remove();
+            window.isEditorModalOpen = false;
             showStatus('✅ Iframe updated successfully', 2000, 'success');
           };
           
@@ -3704,6 +3707,7 @@
           document.getElementById('editCancel').onclick = () => {
             overlayBox.remove();
             backdrop.remove();
+            window.isEditorModalOpen = false;
           };
           
           // Remove iframe button
@@ -3711,6 +3715,7 @@
             wrapper.remove();
             overlayBox.remove();
             backdrop.remove();
+            window.isEditorModalOpen = false;
             setTimeout(() => attachAllHandlers(doc), 0);
             showStatus('🗑️ Iframe removed', 2000, 'info');
           };
@@ -3817,6 +3822,7 @@
 
             const overlayBox = document.createElement('div');
             const backdrop = document.createElement('div');
+            window.isEditorModalOpen = true;
             
             // Set dynamic z-index for iframe context
             const popupZ = getNextPopupZIndex();
@@ -3900,6 +3906,7 @@
             document.getElementById('editCancel').onclick = () => {
               overlayBox.remove();
               backdrop.remove();
+              window.isEditorModalOpen = false;
             };
             
             // Remove iframe button
@@ -3907,6 +3914,7 @@
               wrapper.remove();
               overlayBox.remove();
               backdrop.remove();
+              window.isEditorModalOpen = false;
               setTimeout(() => attachAllHandlers(doc), 0);
               showStatus('🗑️ Google Form removed', 2000, 'info');
             };
