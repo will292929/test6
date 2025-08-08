@@ -4664,6 +4664,8 @@
     function showDormantElements(show) {
       const doc = frame.contentDocument || frame.contentWindow.document;
       const dormantEls = doc.querySelectorAll('.dormant, .dormant-revealed');
+      
+      console.log(`showDormantElements called with show=${show}, found ${dormantEls.length} dormant elements`);
 
       dormantEls.forEach(el => {
         if (show) {
@@ -4713,37 +4715,13 @@
 
 
 
-    window.dormantBtn = document.createElement('button');
-    window.dormantBtn.textContent = "👁️ Show Dormant";
-    window.dormantBtn.style.position = "fixed";
-    window.dormantBtn.style.bottom = "100px";
-    window.dormantBtn.style.right = "20px";
-    window.dormantBtn.style.width = "130px";
-    window.dormantBtn.style.height = "60px";
-    window.dormantBtn.style.zIndex = "9999";
-    window.dormantBtn.style.padding = "16px 20px";
-    window.dormantBtn.style.background = "#000000";
-    window.dormantBtn.style.color = "white";
-    window.dormantBtn.style.border = "2px solid #dc3545";
-    window.dormantBtn.style.cursor = "pointer";
-    window.dormantBtn.style.fontWeight = "700";
-    window.dormantBtn.style.boxShadow = "0 10px 30px rgba(0, 0, 0, 0.4)";
-    window.dormantBtn.style.transition = "all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)";
-    window.dormantBtn.style.backdropFilter = "blur(15px)";
-    window.dormantBtn.style.textTransform = "uppercase";
-    window.dormantBtn.style.letterSpacing = "0.5px";
-    window.dormantBtn.style.overflow = "hidden";
-    window.dormantBtn.style.animation = "slideIn 0.6s ease-out 0.4s both";
-    window.dormantBtn.style.clipPath = "polygon(20% 0%, 80% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%)";
-    window.dormantBtn.style.transform = "rotate(0deg)";
-    document.body.appendChild(window.dormantBtn);
-    let dormantVisible = false;
+    // Initialize dormant button and visibility function
+    window.dormantVisible = false;
     
-    // Function to check if dormant elements exist and show/hide button accordingly
-    window.updateDormantButtonVisibility = function() {
-      // Ensure the button exists
+    // Function to create the dormant button if it doesn't exist
+    function createDormantButton() {
       if (!window.dormantBtn) {
-        console.log('Dormant button not found, creating it...');
+        console.log('Creating dormant button...');
         window.dormantBtn = document.createElement('button');
         window.dormantBtn.textContent = "👁️ Show Dormant";
         window.dormantBtn.style.position = "fixed";
@@ -4767,32 +4745,40 @@
         window.dormantBtn.style.animation = "slideIn 0.6s ease-out 0.4s both";
         window.dormantBtn.style.clipPath = "polygon(20% 0%, 80% 0%, 100% 50%, 80% 100%, 20% 100%, 0% 50%)";
         window.dormantBtn.style.transform = "rotate(0deg)";
-        document.body.appendChild(window.dormantBtn);
         
         // Set up the click handler
         window.dormantBtn.onclick = () => {
-          dormantVisible = !dormantVisible;
-          showDormantElements(dormantVisible);
-          window.dormantBtn.textContent = dormantVisible ? "🙈 Hide Dormant" : "👁️ Show Dormant";
+          console.log('Dormant button clicked!');
+          window.dormantVisible = !window.dormantVisible;
+          console.log(`Setting dormantVisible to: ${window.dormantVisible}`);
+          showDormantElements(window.dormantVisible);
+          window.dormantBtn.textContent = window.dormantVisible ? "🙈 Hide Dormant" : "👁️ Show Dormant";
         };
+        
+        document.body.appendChild(window.dormantBtn);
+        console.log('Dormant button created and added to DOM');
       }
+    }
+    
+    // Function to check if dormant elements exist and show/hide button accordingly
+    window.updateDormantButtonVisibility = function() {
+      // Ensure the button exists
+      createDormantButton();
       
       const doc = frame.contentDocument || frame.contentWindow.document;
       const dormantElements = doc.querySelectorAll('.dormant, .dormant-revealed');
       console.log(`Found ${dormantElements.length} dormant elements`);
-      if (dormantElements.length > 0) {
-        window.dormantBtn.style.display = 'block';
-        console.log('Showing dormant button');
+      
+      // Always show the button - it's needed to create dormant elements
+      window.dormantBtn.style.display = 'block';
+      console.log('Dormant button should be visible');
+      
+      // Update button text based on current state
+      if (window.dormantVisible) {
+        window.dormantBtn.textContent = "🙈 Hide Dormant";
       } else {
-        window.dormantBtn.style.display = 'none';
-        console.log('Hiding dormant button');
+        window.dormantBtn.textContent = "👁️ Show Dormant";
       }
-    };
-    
-    window.dormantBtn.onclick = () => {
-      dormantVisible = !dormantVisible;
-      showDormantElements(dormantVisible);
-      window.dormantBtn.textContent = dormantVisible ? "🙈 Hide Dormant" : "👁️ Show Dormant";
     };
 
 
@@ -5614,6 +5600,10 @@
           const editButton = wrapper.querySelector('button');
           
           if (iframe) {
+            // Preserve the original src attribute
+            const originalSrc = iframe.src || iframe.getAttribute('src');
+            console.log('Processing iframe wrapper removal:', { originalSrc, wrapper: wrapper.tagName });
+            
             // Get the wrapper's dimensions
             const width = wrapper.style.width || '100%';
             const height = wrapper.style.height || '500px';
@@ -5627,6 +5617,12 @@
             iframe.style.boxSizing = 'border-box';
             iframe.style.maxWidth = '100%';
             
+            // Ensure the src attribute is preserved
+            if (originalSrc) {
+              iframe.src = originalSrc;
+              iframe.setAttribute('src', originalSrc);
+            }
+            
             // Remove edit button
             if (editButton) {
               editButton.remove();
@@ -5635,6 +5631,8 @@
             // Move iframe out of wrapper and remove wrapper
             wrapper.parentNode.insertBefore(iframe, wrapper);
             wrapper.remove();
+            
+            console.log('Iframe wrapper removed, preserved src:', iframe.src);
           }
         });
         
@@ -5644,6 +5642,9 @@
         
         // Final cleanup: Remove any remaining editor-specific styles from iframes
         cleanDoc.querySelectorAll('iframe').forEach(iframe => {
+          const src = iframe.src || iframe.getAttribute('src');
+          console.log('Final iframe cleanup:', { src, tagName: iframe.tagName });
+          
           // Remove any editor-specific inline styles
           iframe.style.outline = '';
           iframe.style.transition = '';
@@ -5656,6 +5657,13 @@
           iframe.style.margin = '0 auto';
           iframe.style.boxSizing = 'border-box';
           iframe.style.maxWidth = '100%';
+          
+          // Double-check that src is preserved
+          if (src && (!iframe.src || iframe.src !== src)) {
+            console.log('Restoring iframe src:', src);
+            iframe.src = src;
+            iframe.setAttribute('src', src);
+          }
         });
         
         // Handle preview mode
@@ -5679,6 +5687,19 @@
         showStatus('💾 Uploading to GitHub...', 0, 'info');
         
         const newHTML = cleanDoc.documentElement.outerHTML;
+        
+        // Debug: Check for iframe src attributes in the final HTML
+        const iframeMatches = newHTML.match(/<iframe[^>]*src="([^"]*)"[^>]*>/gi);
+        if (iframeMatches) {
+          console.log('Final HTML iframe src attributes:');
+          iframeMatches.forEach((match, index) => {
+            const srcMatch = match.match(/src="([^"]*)"/);
+            if (srcMatch) {
+              console.log(`Iframe ${index + 1}:`, srcMatch[1]);
+            }
+          });
+        }
+        
         const enc = utf8_to_b64(newHTML);
         const commitResult = await apiCommit(FILE_PATH, enc, 'Commit from editor');
         
@@ -5832,6 +5853,19 @@
       });
       observer.observe(document.body, { childList: true, subtree: true });
     })();
+
+    // Initialize dormant button immediately and set up visibility
+    console.log('Creating dormant button on page load...');
+    createDormantButton();
+    console.log('Dormant button created, setting up visibility...');
+    setTimeout(() => {
+      if (typeof updateDormantButtonVisibility === 'function') {
+        console.log('Initializing dormant button visibility...');
+        updateDormantButtonVisibility();
+      } else {
+        console.error('updateDormantButtonVisibility function not found!');
+      }
+    }, 1000);
 
   </script>
 </body>
