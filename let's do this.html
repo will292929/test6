@@ -653,35 +653,58 @@
 
     .edit-overlay input[type="file"] {
       width: 100%;
-      padding: 10px;
-      border: 2px dashed #dee2e6;
+      padding: 12px 16px;
+      border: 2px dashed #dc3545;
       border-radius: 8px;
-      background: #f8f9fa;
+      background: #000000;
+      color: #ffffff;
       margin-top: 10px;
       cursor: pointer;
+      transition: all 0.3s ease;
+      outline: none;
+      box-sizing: border-box;
     }
 
     .edit-overlay input[type="file"]:hover {
-      border-color: #007bff;
-      background: #e3f2fd;
+      border-color: #dc3545;
+      background: #1a1a1a;
+      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
     }
 
     .edit-overlay input[type="text"],
-    .edit-overlay input[type="url"] {
+    .edit-overlay input[type="url"],
+    .edit-overlay input[type="email"],
+    .edit-overlay textarea,
+    .edit-overlay select {
       width: 100%;
       padding: 12px 16px;
-      border: 2px solid #e9ecef;
+      border: 2px solid #dc3545;
       border-radius: 8px;
+      background: #000000;
+      color: #ffffff;
       font-size: 14px;
       margin-bottom: 15px;
-      transition: border-color 0.3s ease;
+      transition: all 0.3s ease;
+      outline: none;
+      box-sizing: border-box;
     }
 
     .edit-overlay input[type="text"]:focus,
-    .edit-overlay input[type="url"]:focus {
+    .edit-overlay input[type="url"]:focus,
+    .edit-overlay input[type="email"]:focus,
+    .edit-overlay textarea:focus,
+    .edit-overlay select:focus {
       outline: none;
-      border-color: #007bff;
-      box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+      border-color: #dc3545;
+      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
+      background: #1a1a1a;
+    }
+
+    .edit-overlay input[type="text"]::placeholder,
+    .edit-overlay input[type="url"]::placeholder,
+    .edit-overlay input[type="email"]::placeholder,
+    .edit-overlay textarea::placeholder {
+      color: rgba(255, 255, 255, 0.6);
     }
 
     .edit-overlay .form-group {
@@ -698,6 +721,23 @@
     .edit-overlay .form-group input[type="checkbox"] {
       margin-right: 8px;
       transform: scale(1.2);
+    }
+
+    .edit-overlay input[type="color"] {
+      width: 100%;
+      height: 40px;
+      border: 2px solid #dc3545;
+      border-radius: 8px;
+      background: #000000;
+      cursor: pointer;
+      outline: none;
+      transition: all 0.3s ease;
+      box-sizing: border-box;
+    }
+
+    .edit-overlay input[type="color"]:hover {
+      border-color: #dc3545;
+      box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.3);
     }
 
     .edit-overlay .button-group {
@@ -1808,7 +1848,7 @@
         overlay.innerHTML = `
           <h3>💾 Save Work</h3>
           <p>Enter a label for this saved work:</p>
-          <input type="text" id="saveWorkLabel" placeholder="e.g., Homepage v1, Contact form, etc." style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.95); color: #333; font-size: 14px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+          <input type="text" id="saveWorkLabel" placeholder="e.g., Homepage v1, Contact form, etc." style="width: 100%; padding: 12px 16px; border: 2px solid #dc3545; border-radius: 8px; background: #000000; color: #ffffff; font-size: 14px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(220,53,69,0.2); outline: none; transition: border-color 0.3s ease;">
           <div class="button-group" style="display: flex; gap: 10px;">
             <button onclick="saveWorkWithLabel();" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #28a745, #20c997); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600;">💾 Save</button>
             <button onclick="closePopup();" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 8px; cursor: pointer;">Cancel</button>
@@ -1967,7 +2007,7 @@
           overlay.innerHTML = `
             <h3>💾 Save Work</h3>
             <p>Enter a label for this saved work:</p>
-            <input type="text" id="saveWorkLabel" placeholder="e.g., Homepage v1, Contact form, etc." style="width: 100%; padding: 12px; border-radius: 8px; border: 2px solid #dc3545; background: #000000; color: #ffffff; font-size: 14px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(220,53,69,0.2);">
+            <input type="text" id="saveWorkLabel" placeholder="e.g., Homepage v1, Contact form, etc." style="width: 100%; padding: 12px 16px; border: 2px solid #dc3545; border-radius: 8px; background: #000000; color: #ffffff; font-size: 14px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(220,53,69,0.2); outline: none; transition: border-color 0.3s ease;">
             <div class="button-group" style="display: flex; gap: 10px;">
               <button onclick="saveWorkWithLabel();" style="flex: 1; padding: 10px; background: #dc3545; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">💾 Save</button>
               <button onclick="closePopup();" style="flex: 1; padding: 10px; background: #000000; border: 2px solid #dc3545; color: white; border-radius: 8px; cursor: pointer; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Cancel</button>
@@ -2647,7 +2687,7 @@
       overlay.innerHTML = `
         <h3>💾 Save Work</h3>
         <p>Enter a label for this saved work:</p>
-        <input type="text" id="saveWorkLabel" placeholder="e.g., 'Homepage with new header'" style="width: 100%; padding: 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 8px; background: rgba(0,0,0,0.8); color: white; font-size: 14px; margin: 10px 0; outline: none;">
+        <input type="text" id="saveWorkLabel" placeholder="e.g., 'Homepage with new header'" style="width: 100%; padding: 12px 16px; border: 2px solid #dc3545; border-radius: 8px; background: #000000; color: #ffffff; font-size: 14px; margin: 10px 0; outline: none; transition: border-color 0.3s ease;">
         <div class="button-group">
           <button onclick="saveWorkWithLabel()" class="primary">Save Work</button>
           <button onclick="closePopup();" class="secondary">Cancel</button>
@@ -2814,7 +2854,7 @@
           </div>
           <div style="margin-bottom: 20px;">
             <label style="display: block; margin-bottom: 10px; font-weight: 600; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Current Page:</label>
-            <select id="settingsPageSelect" style="width: 100%; padding: 12px; border-radius: 10px; border: 2px solid #dc3545; background: #000000; color: #ffffff; font-weight: 700; font-size: 15px; box-shadow: 0 2px 8px rgba(220,53,69,0.2); text-transform: uppercase; letter-spacing: 0.5px;">
+            <select id="settingsPageSelect" style="width: 100%; padding: 12px 16px; border-radius: 10px; border: 2px solid #dc3545; background: #000000; color: #ffffff; font-weight: 700; font-size: 15px; box-shadow: 0 2px 8px rgba(220,53,69,0.2); text-transform: uppercase; letter-spacing: 0.5px; outline: none; transition: border-color 0.3s ease;">
             </select>
           </div>
           <button onclick="switchPageFromSettings();" style="width: 100%; padding: 14px; background: #000000; border: 2px solid #dc3545; border-radius: 10px; color: white; font-weight: 700; cursor: pointer; transition: all 0.3s ease; font-size: 15px; text-transform: uppercase; letter-spacing: 0.5px;">Switch Page</button>
@@ -2977,11 +3017,11 @@
         </div>
         <div style="margin-bottom: 20px;">
                       <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ffffff;">Version Label:</label>
-          <input type="text" id="versionLabel" placeholder="e.g., mobile-layout, dark-theme, final" style="width: 100%; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.3s ease;">
+          <input type="text" id="versionLabel" placeholder="e.g., mobile-layout, dark-theme, final" style="width: 100%; padding: 12px 16px; border: 2px solid #dc3545; border-radius: 8px; background: #000000; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease;">
         </div>
         <div style="margin-bottom: 20px;">
                       <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #ffffff;">Description (optional):</label>
-          <textarea id="versionDescription" placeholder="Brief description of this version..." style="width: 100%; padding: 12px; border: 2px solid #dc3545; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.3s ease; resize: vertical; min-height: 80px; background: #000000; color: #ffffff;"></textarea>
+          <textarea id="versionDescription" placeholder="Brief description of this version..." style="width: 100%; padding: 12px 16px; border: 2px solid #dc3545; border-radius: 8px; background: #000000; color: #ffffff; font-size: 14px; outline: none; transition: border-color 0.3s ease; resize: vertical; min-height: 80px;"></textarea>
         </div>
         <div style="padding: 15px; background: linear-gradient(135deg, #fff3e0, #ffe0b2); border-radius: 12px; border-left: 4px solid #fd7e14; margin-bottom: 20px;">
           <div style="font-weight: 600; color: #e55a00; margin-bottom: 8px;">💡 Info:</div>
@@ -3542,13 +3582,35 @@
         editButton.style.opacity = '0';
         editButton.style.transition = 'opacity 0.2s ease';
         
-        // Show button on hover
+        // Create transparent overlay to capture clicks on iframe
+        const overlay = doc.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.zIndex = '999';
+        overlay.style.backgroundColor = 'transparent';
+        overlay.style.cursor = 'pointer';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.2s ease';
+        
+        // Show button and overlay on hover
         wrapper.onmouseenter = () => {
           editButton.style.opacity = '1';
+          overlay.style.opacity = '0.1';
         };
         
         wrapper.onmouseleave = () => {
           editButton.style.opacity = '0';
+          overlay.style.opacity = '0';
+        };
+        
+        // Add click handler to overlay to show edit interface
+        overlay.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          editButton.click();
         };
         
         // Add click handler to the edit button
@@ -3651,6 +3713,7 @@
         parent.insertBefore(wrapper, iframe);
         wrapper.appendChild(iframe);
         wrapper.appendChild(editButton);
+        wrapper.appendChild(overlay);
       });
       
       console.log('=== Iframe upgrade complete ===');
@@ -3702,13 +3765,35 @@
           editButton.style.opacity = '0';
           editButton.style.transition = 'opacity 0.2s ease';
           
-          // Show button on hover
+          // Create transparent overlay to capture clicks on iframe
+          const overlay = doc.createElement('div');
+          overlay.style.position = 'absolute';
+          overlay.style.top = '0';
+          overlay.style.left = '0';
+          overlay.style.width = '100%';
+          overlay.style.height = '100%';
+          overlay.style.zIndex = '999';
+          overlay.style.backgroundColor = 'transparent';
+          overlay.style.cursor = 'pointer';
+          overlay.style.opacity = '0';
+          overlay.style.transition = 'opacity 0.2s ease';
+          
+          // Show button and overlay on hover
           wrapper.onmouseenter = () => {
             editButton.style.opacity = '1';
+            overlay.style.opacity = '0.1';
           };
           
           wrapper.onmouseleave = () => {
             editButton.style.opacity = '0';
+            overlay.style.opacity = '0';
+          };
+          
+          // Add click handler to overlay to show edit interface
+          overlay.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            editButton.click();
           };
           
           // Add the same click handler as the main iframe editor
@@ -3820,6 +3905,7 @@
           parent.insertBefore(wrapper, iframe);
           wrapper.appendChild(iframe);
           wrapper.appendChild(editButton);
+          wrapper.appendChild(overlay);
           
           console.log(`✅ Google Form ${index + 1} made editable`);
         }
@@ -3830,6 +3916,16 @@
 
   
     function attachAllHandlers(doc) {
+      // ✅ Fix image URLs that might be using local paths instead of GitHub Pages URLs
+      doc.querySelectorAll('img[data-image-file]').forEach(img => {
+        const imageFile = img.getAttribute('data-image-file');
+        if (imageFile && imageFile.startsWith('images/')) {
+          const fullUrl = `https://${USERNAME}.github.io/${REPO}/${imageFile}`;
+          img.src = fullUrl;
+          img.setAttribute('src', fullUrl);
+        }
+      });
+      
       // ✅ First, upgrade any raw iframes to be editable
       upgradeAllIframes(doc);
       
@@ -4165,7 +4261,8 @@
               const newText = textInput.value.trim();
               
               if (newText !== null) {
-                // Only change text content, preserve ALL existing HTML structure and styling
+                // Store the original element state for safety
+                const originalOuterHTML = targetElement.outerHTML;
                 const originalText = targetElement.textContent || targetElement.innerText;
                 
                 if (originalText === newText) {
@@ -4173,93 +4270,70 @@
                   return;
                 }
                 
-                // Store the original element state completely
-                const originalOuterHTML = targetElement.outerHTML;
-                const originalTag = targetElement.tagName;
-                const originalClasses = targetElement.className;
-                const originalStyle = targetElement.getAttribute('style');
-                const originalAttributes = {};
-                for (let attr of targetElement.attributes) {
-                  originalAttributes[attr.name] = attr.value;
-                }
+                // For complex elements like FAQs, we need to be extremely careful
+                // The safest approach is to use innerHTML with a simple text replacement
+                // that preserves all child elements and styling
                 
-                // For complex content like FAQ sections and styled lists, we need a much simpler approach
-                // The key is to preserve the element's CSS classes and only change the text content
-                // without touching any child elements or complex styling
-                
-                // For complex elements, we'll use a very conservative approach:
-                // 1. Keep all child elements intact
-                // 2. Only replace direct text content
-                // 3. Preserve all CSS classes and styling
-                
-                // Check if this element has child elements
-                const hasChildren = targetElement.children.length > 0;
-                
-                if (hasChildren) {
-                  // For elements with children (like FAQ sections), we need to be very careful
-                  // We'll only replace direct text nodes, not child elements
+                try {
+                  // Check if this element has complex child structure (like FAQs)
+                  const hasComplexChildren = targetElement.children.length > 0;
                   
-                  // Find direct text nodes (not inside child elements)
-                  const directTextNodes = [];
-                  for (let i = 0; i < targetElement.childNodes.length; i++) {
-                    const child = targetElement.childNodes[i];
-                    if (child.nodeType === Node.TEXT_NODE) {
-                      directTextNodes.push(child);
-                    }
-                  }
-                  
-                  if (directTextNodes.length > 0) {
-                    // Replace only the first direct text node
-                    directTextNodes[0].textContent = newText;
+                  if (hasComplexChildren) {
+                    // For complex elements, we'll use a more sophisticated approach
+                    // that preserves the HTML structure while updating text content
                     
-                    // Clear other direct text nodes to avoid duplication
-                    for (let i = 1; i < directTextNodes.length; i++) {
-                      directTextNodes[i].textContent = '';
+                    // Create a temporary container to work with the HTML
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = targetElement.innerHTML;
+                    
+                    // Find all text nodes in the temporary container
+                    const textNodes = [];
+                    const walker = document.createTreeWalker(
+                      tempDiv,
+                      NodeFilter.SHOW_TEXT,
+                      null,
+                      false
+                    );
+                    
+                    let node;
+                    while (node = walker.nextNode()) {
+                      textNodes.push(node);
+                    }
+                    
+                    // If we found text nodes, replace the first one with new text
+                    // and clear the others to avoid duplication
+                    if (textNodes.length > 0) {
+                      textNodes[0].textContent = newText;
+                      for (let i = 1; i < textNodes.length; i++) {
+                        textNodes[i].textContent = '';
+                      }
+                      
+                      // Update the original element with the modified HTML
+                      targetElement.innerHTML = tempDiv.innerHTML;
+                    } else {
+                      // If no text nodes found, just set the text content
+                      targetElement.textContent = newText;
                     }
                   } else {
-                    // If no direct text nodes, add the new text at the beginning
-                    targetElement.insertBefore(document.createTextNode(newText), targetElement.firstChild);
+                    // Simple case: element has only text content
+                    // Just replace the text content directly
+                    targetElement.textContent = newText;
                   }
-                } else {
-                  // Simple case: element has only text content
-                  // Just replace the text content directly
-                  targetElement.textContent = newText;
-                }
-                
-                // CRITICAL: Verify that we haven't lost any styling or structure
-                // If anything changed beyond the text content, restore the original
-                if (targetElement.tagName !== originalTag) {
-                  console.error('Text edit changed element tag! Restoring...');
+                  
+                  // Verify the element structure is still intact
+                  if (targetElement.outerHTML === originalOuterHTML) {
+                    console.warn('Text edit made no changes, reverting...');
+                    targetElement.outerHTML = originalOuterHTML;
+                    return;
+                  }
+                  
+                  saveToHistory();
+                  
+                } catch (error) {
+                  console.error('Error during text edit:', error);
+                  // Restore original state if anything went wrong
                   targetElement.outerHTML = originalOuterHTML;
-                  return;
                 }
-                
-                if (targetElement.className !== originalClasses) {
-                  console.error('Text edit changed element classes! Restoring...');
-                  targetElement.className = originalClasses;
-                }
-                
-                if (targetElement.getAttribute('style') !== originalStyle) {
-                  console.error('Text edit changed element style! Restoring...');
-                  if (originalStyle) {
-                    targetElement.setAttribute('style', originalStyle);
-                  } else {
-                    targetElement.removeAttribute('style');
-                  }
-                }
-                
-                // Verify all other attributes are preserved
-                for (let attrName in originalAttributes) {
-                  if (targetElement.getAttribute(attrName) !== originalAttributes[attrName]) {
-                    console.error(`Text edit changed attribute ${attrName}! Restoring...`);
-                    targetElement.setAttribute(attrName, originalAttributes[attrName]);
-                  }
-                }
-                
-                // Force a reflow to ensure styles are applied
-                targetElement.offsetHeight;
-                
-                saveToHistory();
               }
             }
 
@@ -4304,10 +4378,13 @@
                     // Store the old source for potential cleanup (but don't block on it)
                     const oldSrc = targetElement.getAttribute(attr || 'src') || targetElement.src;
                     
-                    // Update the image source
-                    targetElement.setAttribute(attr || 'src', githubPath);
+                    // Create the full GitHub Pages URL for the uploaded image
+                    const imageUrl = `https://${USERNAME}.github.io/${REPO}/${githubPath}`;
+                    
+                    // Update the image source with the full URL
+                    targetElement.setAttribute(attr || 'src', imageUrl);
                     targetElement.setAttribute('data-image-file', githubPath);
-                    if (targetTag === 'img') targetElement.src = githubPath;
+                    if (targetTag === 'img') targetElement.src = imageUrl;
                     
                     // Try to clean up old image if it was uploaded through this system
                     const prevFile = targetElement.getAttribute('data-image-file');
@@ -4929,6 +5006,12 @@
             return `<iframe src="${cleanSrc}" width="100%" height="500px" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>`;
           }
         );
+        
+        // Fix image URLs that reference local paths but should be GitHub Pages URLs
+        html = html.replace(/src="(images\/[^"]*?)"/gi, (match, imagePath) => {
+          const fullUrl = `https://${USERNAME}.github.io/${REPO}/${imagePath}`;
+          return `src="${fullUrl}"`;
+        });
         
         // Prepare HTML for iframe with CSS isolation
         html = prepareIframeHTML(html);
