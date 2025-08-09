@@ -1539,11 +1539,11 @@
         console.log('Updating FILE_PATH from', FILE_PATH, 'to', newPage);
         FILE_PATH = newPage;
         console.log('Loading HTML for new page...');
-         await loadHTML();
+        await loadHTML();
         
         // Reset history for new page
         console.log('Initializing history for new page...');
-         initializeHistory();
+        initializeHistory();
          const d = frame.contentDocument || frame.contentWindow.document;
          startHistoryObserver(d);
         
@@ -3732,6 +3732,16 @@
             const newWidth = normalizeSize(rawWidth, wrapper.style.width || '100%');
             const newHeight = normalizeSize(rawHeight, wrapper.style.height || '500px');
             
+            // If Google Form, coerce to proper embed URL
+            if (newSrc && /docs\.google\.com\/forms/i.test(newSrc)) {
+              const embedUrl = normalizeGoogleFormUrl(newSrc);
+              if (!embedUrl || !/viewform/i.test(embedUrl)) {
+                alert('Please paste a public Google Form URL like "https://docs.google.com/forms/d/e/FORM_ID/viewform". The generic Forms homepage cannot be embedded.');
+                return; // Do not apply invalid src
+              }
+              newSrc = embedUrl;
+            }
+
             // Update iframe properties (guard URL)
             if (newSrc) {
               iframe.setAttribute('src', newSrc);
@@ -4942,7 +4952,7 @@
       console.log(`Found ${dormantElements.length} dormant elements`);
       
       // Always show the button - it's needed to create dormant elements
-      window.dormantBtn.style.display = 'block';
+        window.dormantBtn.style.display = 'block';
       console.log('Dormant button should be visible');
       
       // Update button text based on current state
@@ -5136,6 +5146,26 @@
       }).join(''));
     }
 
+    // Normalize Google Form URLs: preserve existing params and ensure embedded=true
+    function normalizeGoogleFormUrl(url) {
+      try {
+        const u = new URL(url, window.location.origin);
+        if (u.hostname.includes('docs.google.com') && u.pathname.includes('/forms/')) {
+          if (!u.searchParams.has('embedded')) u.searchParams.append('embedded', 'true');
+          const qs = u.searchParams.toString();
+          return `${u.origin}${u.pathname}${qs ? `?${qs}` : ''}`;
+        }
+        return url;
+      } catch (_) {
+        // Fallback string handling
+        if (/docs\.google\.com\/forms\//i.test(url)) {
+          if (/embedded=true/i.test(url)) return url;
+          return url.includes('?') ? `${url}&embedded=true` : `${url}?embedded=true`;
+        }
+        return url;
+      }
+    }
+
     async function loadHTML() {
       try {
         const r = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FILE_PATH}`, { 
@@ -5150,19 +5180,9 @@
         let html = b64_to_utf8(j.content);
         sha = j.sha;
         
-        // Fix incomplete iframe tags
-        html = html.replace(/<iframe\s+src="([^"]*?docs\.google\.com\/forms\/[^"]*?)(?:\s*$|(?:\s*[^>]*)?>)/gi, 
-          (match, src) => {
-            // Clean up the src URL
-            let cleanSrc = src.replace(/[">\s]+$/, '');
-            
-            // Add embedded=true if not present
-            if (!cleanSrc.includes('embedded=true')) {
-              cleanSrc = cleanSrc.replace('/viewform', '/viewform?embedded=true');
-            }
-            
-            return `<iframe src="${cleanSrc}" width="100%" height="500px" frameborder="0" marginheight="0" marginwidth="0">Loading…</iframe>`;
-          }
+        // Preserve Google Form iframe URLs and ensure embedded=true, without rebuilding tags
+        html = html.replace(/(<iframe[^>]*src=")([^"]*docs\.google\.com\/forms\/[^"]*)(")/gi,
+          (m, p1, src, p3) => `${p1}${normalizeGoogleFormUrl(src)}${p3}`
         );
         
         // Fix image URLs that reference local paths but should be GitHub Pages URLs
