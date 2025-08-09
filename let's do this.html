@@ -3565,6 +3565,7 @@
         // Create edit button
         const editButton = doc.createElement('button');
         editButton.innerHTML = '✏️';
+        editButton.setAttribute('data-editor-ui', 'true');
         editButton.style.position = 'absolute';
         editButton.style.top = '5px';
         editButton.style.right = '5px';
@@ -3581,6 +3582,7 @@
         
         // Create transparent overlay to capture clicks on iframe
         const overlay = doc.createElement('div');
+        overlay.setAttribute('data-editor-ui', 'true');
         overlay.style.position = 'absolute';
         overlay.style.top = '0';
         overlay.style.left = '0';
@@ -3729,7 +3731,47 @@
         
         // Mark as processed to avoid duplicate wrapping
         iframe.setAttribute('data-editor-attached', 'yes');
-        wrapper.setAttribute('data-editor-wrapper', 'yes');
+        wrapper.setAttribute('data-editor-wrapper', 'true');
+
+        // Keep iframe in sync with overlay lifecycle and visibility
+        (function setupOverlaySync(overlayEl, iframeEl, wrapperEl) {
+          function syncVisibility() {
+            try {
+              const cs = window.getComputedStyle(overlayEl);
+              const shouldHide = cs.display === 'none' || cs.visibility === 'hidden';
+              iframeEl.style.display = shouldHide ? 'none' : 'block';
+            } catch (_) {
+              // No-op
+            }
+          }
+          // Initial sync
+          syncVisibility();
+          // Observe overlay attribute changes
+          const attrObserver = new MutationObserver(() => {
+            if (!overlayEl.isConnected) {
+              // Overlay removed -> remove the whole embed wrapper
+              if (wrapperEl && wrapperEl.isConnected) wrapperEl.remove();
+              return;
+            }
+            syncVisibility();
+          });
+          attrObserver.observe(overlayEl, { attributes: true, attributeFilter: ['style', 'class'] });
+          // Observe parent for overlay removal
+          const parentObserver = new MutationObserver((records) => {
+            for (const rec of records) {
+              if (rec.type === 'childList') {
+                rec.removedNodes.forEach(node => {
+                  if (node === overlayEl) {
+                    if (wrapperEl && wrapperEl.isConnected) wrapperEl.remove();
+                  }
+                });
+              }
+            }
+          });
+          if (wrapperEl && wrapperEl.parentNode) {
+            parentObserver.observe(wrapperEl, { childList: true });
+          }
+        })(overlay, iframe, wrapper);
       });
       
       console.log('=== Iframe upgrade complete ===');
@@ -3783,16 +3825,18 @@
           
           // Create transparent overlay to capture clicks on iframe
           const overlay = doc.createElement('div');
+          overlay.setAttribute('data-editor-ui', 'true');
           overlay.style.position = 'absolute';
           overlay.style.top = '0';
           overlay.style.left = '0';
           overlay.style.width = '100%';
           overlay.style.height = '100%';
           overlay.style.zIndex = '999';
-          overlay.style.backgroundColor = 'transparent';
+          overlay.style.backgroundColor = 'rgba(0,0,0,0.001)';
           overlay.style.cursor = 'pointer';
           overlay.style.opacity = '0';
           overlay.style.transition = 'opacity 0.2s ease';
+          overlay.style.pointerEvents = 'auto';
           
           // Show button and overlay on hover
           wrapper.onmouseenter = () => {
@@ -3928,6 +3972,46 @@
           wrapper.appendChild(overlay);
           
           console.log(`✅ Google Form ${index + 1} made editable`);
+
+          // Keep iframe in sync with overlay lifecycle and visibility
+          (function setupOverlaySync(overlayEl, iframeEl, wrapperEl) {
+            function syncVisibility() {
+              try {
+                const cs = window.getComputedStyle(overlayEl);
+                const shouldHide = cs.display === 'none' || cs.visibility === 'hidden';
+                iframeEl.style.display = shouldHide ? 'none' : 'block';
+              } catch (_) {
+                // No-op
+              }
+            }
+            // Initial sync
+            syncVisibility();
+            // Observe overlay attribute changes
+            const attrObserver = new MutationObserver(() => {
+              if (!overlayEl.isConnected) {
+                // Overlay removed -> remove the whole embed wrapper
+                if (wrapperEl && wrapperEl.isConnected) wrapperEl.remove();
+                return;
+              }
+              syncVisibility();
+            });
+            attrObserver.observe(overlayEl, { attributes: true, attributeFilter: ['style', 'class'] });
+            // Observe parent for overlay removal
+            const parentObserver = new MutationObserver((records) => {
+              for (const rec of records) {
+                if (rec.type === 'childList') {
+                  rec.removedNodes.forEach(node => {
+                    if (node === overlayEl) {
+                      if (wrapperEl && wrapperEl.isConnected) wrapperEl.remove();
+                    }
+                  });
+                }
+              }
+            });
+            if (wrapperEl && wrapperEl.parentNode) {
+              parentObserver.observe(wrapperEl, { childList: true });
+            }
+          })(overlay, iframe, wrapper);
         }
       });
     }
@@ -3961,6 +4045,10 @@
       const elements = doc.querySelectorAll('a,img,button,iframe,span,p,div,h1,h2,h3,h4,h5,h6,strong,b,em');
 
       elements.forEach(el => {
+        // Skip editor UI elements and wrappers to avoid hijacking their clicks
+        if (el.getAttribute && el.getAttribute('data-editor-ui') === 'true') return;
+        const wrapperAncestor = el.closest && el.closest('[data-editor-wrapper="true"]');
+        if (wrapperAncestor && el.tagName && el.tagName.toLowerCase() !== 'iframe') return;
         const tag = el.tagName.toLowerCase();
         const text = el.innerText?.trim();
         const hasText = !!text;
