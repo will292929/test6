@@ -3708,7 +3708,7 @@
 
           // Apply Changes button
           document.getElementById('editOk').onclick = () => {
-            const newSrc = (document.getElementById('iframeSrc').value || '').trim();
+            let newSrc = (document.getElementById('iframeSrc').value || '').trim();
             const rawWidth = (document.getElementById('iframeWidth').value || '').trim();
             const rawHeight = (document.getElementById('iframeHeight').value || '').trim();
             const newTitle = (document.getElementById('iframeTitle').value || '').trim();
@@ -3721,11 +3721,22 @@
               if (num) return num[1] + (num[2] ? num[2] : 'px');
               return fallback;
             };
+            const normalizeUrl = (val) => {
+              if (!val) return '';
+              if (/^https?:\/\//i.test(val)) return val;
+              if (/^\/\//.test(val)) return 'https:' + val;
+              if (/^(docs\.google\.com|www\.|youtube\.com|youtu\.be)/i.test(val)) return 'https://' + val;
+              return val;
+            };
+            newSrc = normalizeUrl(newSrc);
             const newWidth = normalizeSize(rawWidth, wrapper.style.width || '100%');
             const newHeight = normalizeSize(rawHeight, wrapper.style.height || '500px');
             
             // Update iframe properties (guard URL)
-            if (newSrc && /^(https?:)?\/\//i.test(newSrc)) iframe.src = newSrc;
+            if (newSrc) {
+              iframe.setAttribute('src', newSrc);
+              try { iframe.src = newSrc; } catch (_) {}
+            }
             if (newTitle) iframe.title = newTitle;
             
             // Update wrapper dimensions
@@ -3961,7 +3972,7 @@
 
             // Apply Changes button
             document.getElementById('editOk').onclick = () => {
-              const newSrc = (document.getElementById('iframeSrc').value || '').trim();
+              let newSrc = (document.getElementById('iframeSrc').value || '').trim();
               const rawWidth = (document.getElementById('iframeWidth').value || '').trim();
               const rawHeight = (document.getElementById('iframeHeight').value || '').trim();
               const newTitle = (document.getElementById('iframeTitle').value || '').trim();
@@ -3973,11 +3984,22 @@
                 if (num) return num[1] + (num[2] ? num[2] : 'px');
                 return fallback;
               };
+              const normalizeUrl = (val) => {
+                if (!val) return '';
+                if (/^https?:\/\//i.test(val)) return val;
+                if (/^\/\//.test(val)) return 'https:' + val;
+                if (/^(docs\.google\.com|www\.|youtube\.com|youtu\.be)/i.test(val)) return 'https://' + val;
+                return val;
+              };
+              newSrc = normalizeUrl(newSrc);
               const newWidth = normalizeSize(rawWidth, wrapper.style.width || '100%');
               const newHeight = normalizeSize(rawHeight, wrapper.style.height || '500px');
               
               // Update iframe properties
-              if (newSrc && /^(https?:)?\/\//i.test(newSrc)) iframe.src = newSrc;
+              if (newSrc) {
+                iframe.setAttribute('src', newSrc);
+                try { iframe.src = newSrc; } catch (_) {}
+              }
               if (newTitle) iframe.title = newTitle;
               
               // Update wrapper dimensions
@@ -4196,6 +4218,15 @@
           // 🧠 Build overlay with dynamic z-index
           const { overlay, backdrop } = createPopupWithZIndex();
 
+          // Determine if this element or an ancestor is dormant to show Restore option
+          const dormantContainer = (targetElement && targetElement.closest)
+            ? (targetElement.closest('.dormant, .dormant-revealed') ||
+               ((targetElement.classList && (targetElement.classList.contains('dormant') || targetElement.classList.contains('dormant-revealed'))) ? targetElement : null))
+            : null;
+          const restoreOptionHTML = dormantContainer ? 
+            '<div class="edit-option enhanced-option" data-value="restore"><div style="font-size: 28px; margin-bottom: 10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">🔄</div><div style="font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Restore</div></div>'
+            : '';
+
           overlay.innerHTML = `
         <div style="text-align: center; margin-bottom: 25px;">
                       <h3 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Edit Element</h3>
@@ -4234,8 +4265,7 @@
             <div style="font-size: 28px; margin-bottom: 10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">👁️</div>
             <div style="font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Hide Element</div>
           </div>
-          ${(el.classList.contains('dormant') || el.classList.contains('dormant-revealed')) ? 
-            '<div class="edit-option enhanced-option" data-value="restore"><div style="font-size: 28px; margin-bottom: 10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">🔄</div><div style="font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Restore</div></div>' : ''}
+          ${restoreOptionHTML}
           <div class="edit-option enhanced-option" data-value="delete">
             <div style="font-size: 28px; margin-bottom: 10px; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));">🗑️</div>
             <div style="font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Delete</div>
@@ -4615,20 +4645,21 @@
             }
 
             else if (choice === 'restore') {
-              targetElement.classList.remove('dormant');
-              targetElement.classList.remove('dormant-revealed');
-              const originalText = targetElement.getAttribute('data-original-text');
+              const restoreTarget = (targetElement && targetElement.closest) ? (targetElement.closest('.dormant, .dormant-revealed') || targetElement) : targetElement;
+              restoreTarget.classList.remove('dormant');
+              restoreTarget.classList.remove('dormant-revealed');
+              const originalText = restoreTarget.getAttribute('data-original-text');
               if (originalText) {
-                targetElement.innerText = originalText;
-                targetElement.removeAttribute('data-original-text');
+                restoreTarget.innerText = originalText;
+                restoreTarget.removeAttribute('data-original-text');
               }
 
               const attrs = ['src', 'href', 'data-link', 'onclick'];
               attrs.forEach(attr => {
-                const original = targetElement.getAttribute(`data-original-${attr}`);
+                const original = restoreTarget.getAttribute(`data-original-${attr}`);
                 if (original) {
-                  targetElement.setAttribute(attr, original);
-                  targetElement.removeAttribute(`data-original-${attr}`);
+                  restoreTarget.setAttribute(attr, original);
+                  restoreTarget.removeAttribute(`data-original-${attr}`);
                 }
               });
               saveToHistory();
@@ -5746,7 +5777,7 @@
           
           if (iframe) {
             // Preserve the original src attribute
-            const originalSrc = iframe.src || iframe.getAttribute('src');
+            const originalSrc = iframe.getAttribute('src') || iframe.src;
             console.log('Processing iframe wrapper removal:', { originalSrc, wrapper: wrapper.tagName });
             
             // Get the wrapper's dimensions
@@ -5762,10 +5793,10 @@
             iframe.style.boxSizing = 'border-box';
             iframe.style.maxWidth = '100%';
             
-            // Ensure the src attribute is preserved
+            // Ensure the src attribute is preserved from attribute (not computed)
             if (originalSrc) {
-              iframe.src = originalSrc;
               iframe.setAttribute('src', originalSrc);
+              try { iframe.src = originalSrc; } catch (_) {}
             }
             
             // Remove edit button
@@ -5787,7 +5818,7 @@
         
         // Final cleanup: Remove any remaining editor-specific styles from iframes
         cleanDoc.querySelectorAll('iframe').forEach(iframe => {
-          const src = iframe.src || iframe.getAttribute('src');
+          const src = iframe.getAttribute('src') || iframe.src;
           console.log('Final iframe cleanup:', { src, tagName: iframe.tagName });
           
           // Remove any editor-specific inline styles
@@ -5804,10 +5835,9 @@
           iframe.style.maxWidth = '100%';
           
           // Double-check that src is preserved
-          if (src && (!iframe.src || iframe.src !== src)) {
-            console.log('Restoring iframe src:', src);
-            iframe.src = src;
+          if (src) {
             iframe.setAttribute('src', src);
+            try { if (!iframe.src || iframe.src !== src) { iframe.src = src; } } catch (_) {}
           }
         });
         
