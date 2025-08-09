@@ -3745,6 +3745,7 @@
             // Update iframe properties (guard URL)
             if (newSrc) {
               iframe.setAttribute('src', newSrc);
+              iframe.setAttribute('data-editor-src', newSrc);
               try { iframe.src = newSrc; } catch (_) {}
             }
             if (newTitle) iframe.title = newTitle;
@@ -4008,6 +4009,7 @@
               // Update iframe properties
               if (newSrc) {
                 iframe.setAttribute('src', newSrc);
+                iframe.setAttribute('data-editor-src', newSrc);
                 try { iframe.src = newSrc; } catch (_) {}
               }
               if (newTitle) iframe.title = newTitle;
@@ -5797,7 +5799,7 @@
           
           if (iframe) {
             // Preserve the original src attribute
-            const originalSrc = iframe.getAttribute('src') || iframe.src;
+            const originalSrc = iframe.getAttribute('data-editor-src') || iframe.getAttribute('src') || iframe.src;
             console.log('Processing iframe wrapper removal:', { originalSrc, wrapper: wrapper.tagName });
             
             // Get the wrapper's dimensions
@@ -5838,7 +5840,7 @@
         
         // Final cleanup: Remove any remaining editor-specific styles from iframes
         cleanDoc.querySelectorAll('iframe').forEach(iframe => {
-          const src = iframe.getAttribute('src') || iframe.src;
+          const src = iframe.getAttribute('data-editor-src') || iframe.getAttribute('src') || iframe.src;
           console.log('Final iframe cleanup:', { src, tagName: iframe.tagName });
           
           // Remove any editor-specific inline styles
@@ -5857,6 +5859,7 @@
           // Double-check that src is preserved
           if (src) {
             iframe.setAttribute('src', src);
+            iframe.setAttribute('data-editor-src', src);
             try { if (!iframe.src || iframe.src !== src) { iframe.src = src; } } catch (_) {}
           }
         });
