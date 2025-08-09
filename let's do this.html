@@ -1539,11 +1539,13 @@
         console.log('Updating FILE_PATH from', FILE_PATH, 'to', newPage);
         FILE_PATH = newPage;
         console.log('Loading HTML for new page...');
-        await loadHTML();
+         await loadHTML();
         
         // Reset history for new page
         console.log('Initializing history for new page...');
-        initializeHistory();
+         initializeHistory();
+         const d = frame.contentDocument || frame.contentWindow.document;
+         startHistoryObserver(d);
         
         console.log('Page switch completed successfully');
         showStatus(`✅ Switched to ${newPage}`, 2000, 'success');
@@ -1557,8 +1559,10 @@
     // History for undo functionality
     let history = [];
     let historyIndex = -1;
-    const MAX_HISTORY = 20;
+    const MAX_HISTORY = 50;
     let isUndoing = false; // Flag to prevent conflicts during undo
+    let historyObserver = null;
+    let pendingHistorySave = null;
     
     // Initialize history when frame loads
     function initializeHistory() {
@@ -1574,6 +1578,7 @@
         const undoBtn = document.getElementById('undoBtn');
         undoBtn.disabled = true;
         console.log('🚀 History initialized. Index:', historyIndex, 'History length:', history.length, 'HTML length:', html.length);
+        try { startHistoryObserver(doc); } catch (_) {}
       } else {
         console.log('❌ Could not initialize history - no document available');
         console.log('Frame src:', frame.src);
@@ -3346,6 +3351,33 @@
       }, 300);
     }
 
+    // Observe changes within the iframe document and auto-save to history (debounced)
+    function startHistoryObserver(doc) {
+      try {
+        if (!doc) return;
+        if (historyObserver) {
+          try { historyObserver.disconnect(); } catch (_) {}
+        }
+        historyObserver = new MutationObserver(() => {
+          if (isUndoing) return;
+          if (pendingHistorySave) clearTimeout(pendingHistorySave);
+          pendingHistorySave = setTimeout(() => {
+            try { saveToHistory(); } catch (_) {}
+          }, 400);
+        });
+        const target = doc.body || doc.documentElement;
+        historyObserver.observe(target, {
+          subtree: true,
+          childList: true,
+          attributes: true,
+          characterData: true
+        });
+        console.log('🧩 History observer started');
+      } catch (err) {
+        console.warn('Could not start history observer:', err);
+      }
+    }
+
     // Ensure undo button is properly connected
     const undoBtn = document.getElementById('undoBtn');
     if (undoBtn) {
@@ -4261,6 +4293,38 @@
           // Handle option selection
           const options = overlay.querySelectorAll('.edit-option');
           const editDetails = overlay.querySelector('#editDetails');
+          let chosenTextEl = null;
+
+          function findBestTextElement(startEl) {
+            try {
+              if (!startEl) return null;
+              const matches = (sel) => startEl.matches && startEl.matches(sel);
+              // Direct text-friendly targets
+              if (matches && matches('h1,h2,h3,h4,h5,h6,p,span,.panel-title-edit,.panel-text')) {
+                return startEl;
+              }
+              const card = startEl.closest && startEl.closest('.card');
+              if (card) {
+                if (startEl.closest('.card-header') || startEl.closest('a.panel-title')) {
+                  const headerEl = card.querySelector('.panel-title-edit, h1,h2,h3,h4,h5,h6');
+                  if (headerEl) return headerEl;
+                }
+                if (startEl.closest('.panel-collapse, .panel-body')) {
+                  const bodyEl = card.querySelector('.panel-text, .panel-body p');
+                  if (bodyEl) return bodyEl;
+                }
+                const headerFallback = card.querySelector('.panel-title-edit, h1,h2,h3,h4,h5,h6');
+                if (headerFallback) return headerFallback;
+                const bodyFallback = card.querySelector('.panel-text, .panel-body p, p');
+                if (bodyFallback) return bodyFallback;
+              }
+              const descHeader = startEl.querySelector && startEl.querySelector('h1,h2,h3,h4,h5,h6,.panel-title-edit');
+              if (descHeader) return descHeader;
+              const descPara = startEl.querySelector && startEl.querySelector('p,.panel-text,span');
+              if (descPara) return descPara;
+              return startEl;
+            } catch (_) { return startEl; }
+          }
           
           options.forEach(option => {
             option.addEventListener('click', () => {
@@ -4293,7 +4357,9 @@
               editDetails.style.display = 'block';
               overlay.querySelector('#textEdit').style.display = 'block';
               const textInput = overlay.querySelector('#textInput');
-              textInput.value = targetElement.innerText.trim() || '';
+              chosenTextEl = findBestTextElement(targetElement);
+              const currentText = chosenTextEl ? (chosenTextEl.innerText || chosenTextEl.textContent || '') : (targetElement.innerText || '');
+              textInput.value = currentText.trim();
             } else if (choice === 'style') {
               editDetails.style.display = 'block';
               overlay.querySelector('#styleEdit').style.display = 'block';
@@ -4383,142 +4449,11 @@
 
             else if (choice === 'text') {
               const textInput = overlay.querySelector('#textInput');
-              const newText = textInput.value.trim();
-              
-              if (newText !== null) {
-                // Store the original element state for safety
-                const originalOuterHTML = targetElement.outerHTML;
-                const originalText = targetElement.textContent || targetElement.innerText;
-                
-                if (originalText === newText) {
-                  // No change needed
-                  return;
-                }
-                
-                try {
-                  // Check if this element has complex child structure (like FAQs)
-                  const hasComplexChildren = targetElement.children.length > 0;
-                  
-                  if (hasComplexChildren) {
-                    // For complex elements with styled content, we need to preserve HTML formatting
-                    // The key insight is that we should preserve the existing HTML structure
-                    // and only update the text content within styled elements
-                    
-                    // Create a temporary container to work with the HTML
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = targetElement.innerHTML;
-                    
-                    // Find all text nodes in the temporary container
-                    const textNodes = [];
-                    const walker = document.createTreeWalker(
-                      tempDiv,
-                      NodeFilter.SHOW_TEXT,
-                      null,
-                      false
-                    );
-                    
-                    let node;
-                    while (node = walker.nextNode()) {
-                      textNodes.push(node);
-                    }
-                    
-                    if (textNodes.length > 0) {
-                      // For FAQ-style content, we want to preserve the HTML structure
-                      // but intelligently distribute the new text across styled elements
-                      
-                      const firstTextNode = textNodes[0];
-                      const parentElement = firstTextNode.parentElement;
-                      
-                      // Check if this looks like a FAQ or styled content structure
-                      const hasStyledElements = tempDiv.querySelector('strong, em, span, b, i, u, mark, code');
-                      
-                      if (hasStyledElements) {
-                        // This is likely FAQ content with styling - we need to be very careful
-                        // The issue is that textContent strips HTML, so we need a different approach
-                        
-                        // Check if the new text contains HTML formatting
-                        const containsHTML = /<[^>]*>/.test(newText);
-                        
-                        if (containsHTML) {
-                          // If the new text contains HTML, we can use it directly
-                          // but we need to be careful about security
-                          const tempTextDiv = document.createElement('div');
-                          tempTextDiv.innerHTML = newText;
-                          
-                          // Only allow safe HTML tags
-                          const safeTags = ['strong', 'em', 'b', 'i', 'u', 'mark', 'code', 'span'];
-                          const sanitizedHTML = sanitizeHTML(tempTextDiv.innerHTML, safeTags);
-                          
-                          // Replace the first text node's parent with the sanitized HTML
-                          if (firstTextNode.parentElement === tempDiv) {
-                            tempDiv.innerHTML = sanitizedHTML;
-                          } else {
-                            firstTextNode.parentElement.innerHTML = sanitizedHTML;
-                          }
-                        } else {
-                          // Plain text - we need to preserve the existing HTML structure
-                          // but intelligently distribute the text
-                          
-                          // Get the current styled elements to understand the structure
-                          const styledElements = tempDiv.querySelectorAll('strong, em, span, b, i, u, mark, code');
-                          
-                          if (styledElements.length > 0) {
-                            // Distribute the text across the first styled element
-                            const firstStyledElement = styledElements[0];
-                            firstStyledElement.textContent = newText;
-                            
-                            // Clear other text nodes to avoid duplication
-                            for (let i = 1; i < textNodes.length; i++) {
-                              textNodes[i].textContent = '';
-                            }
-                          } else {
-                            // No styled elements, safe to replace the first text node
-                            firstTextNode.textContent = newText;
-                            
-                            // Clear other text nodes to avoid duplication
-                            for (let i = 1; i < textNodes.length; i++) {
-                              textNodes[i].textContent = '';
-                            }
-                          }
-                        }
-                        
-                        console.log('Preserving FAQ styling structure:', tempDiv.innerHTML);
-                      } else {
-                        // No special styling elements, safe to do normal text replacement
-                        firstTextNode.textContent = newText;
-                        
-                        // Clear other text nodes to avoid duplication
-                        for (let i = 1; i < textNodes.length; i++) {
-                          textNodes[i].textContent = '';
-                        }
-                      }
-                      
-                      // Update the original element with the modified HTML
-                      targetElement.innerHTML = tempDiv.innerHTML;
-                    } else {
-                      // If no text nodes found, just set the text content
-                      targetElement.textContent = newText;
-                    }
-                  } else {
-                    // Simple case: element has only text content
-                    // Just replace the text content directly
-                    targetElement.textContent = newText;
-                  }
-                  
-                  // Verify the element structure is still intact
-                  if (targetElement.outerHTML === originalOuterHTML) {
-                    console.warn('Text edit made no changes, reverting...');
-                    targetElement.outerHTML = originalOuterHTML;
-                    return;
-                  }
-                  
-                  saveToHistory();
-                  
-                } catch (error) {
-                  console.error('Error during text edit:', error);
-                  // Restore original state if anything went wrong
-                  targetElement.outerHTML = originalOuterHTML;
-                }
+              const newText = textInput.value;
+              const textEl = chosenTextEl || findBestTextElement(targetElement);
+              if (textEl && typeof newText === 'string') {
+                textEl.innerText = newText;
+                saveToHistory();
               }
             }
 
@@ -5222,7 +5157,11 @@
       console.log('Frame setup complete');
       
       // Initialize history with current state
-      setTimeout(() => initializeHistory(), 100);
+        setTimeout(() => {
+          initializeHistory();
+          const d = frame.contentDocument || frame.contentWindow.document;
+          startHistoryObserver(d);
+        }, 100);
       
       // Start auto-save
       startAutoSave();
