@@ -5287,6 +5287,10 @@
         
         // Prepare HTML for iframe with CSS isolation
         html = prepareIframeHTML(html);
+        // Normalize/sanitize Google Form iframe srcs in the loaded HTML
+        html = html.replace(/(<iframe[^>]*src=")([^\"]*docs\.google\.com\/forms\/[^"]*)(")/gi, (m, p1, src, p3) => {
+          return `${p1}${sanitizeIframeSrc(normalizeGoogleFormUrl(src))}${p3}`;
+        });
         
         // Debug: Check if the HTML has a black background
         console.log('Loading HTML content:', html.substring(0, 500) + '...');
