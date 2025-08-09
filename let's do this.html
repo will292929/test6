@@ -3708,14 +3708,24 @@
 
           // Apply Changes button
           document.getElementById('editOk').onclick = () => {
-            const newSrc = document.getElementById('iframeSrc').value;
-            const newWidth = document.getElementById('iframeWidth').value;
-            const newHeight = document.getElementById('iframeHeight').value;
-            const newTitle = document.getElementById('iframeTitle').value;
+            const newSrc = (document.getElementById('iframeSrc').value || '').trim();
+            const rawWidth = (document.getElementById('iframeWidth').value || '').trim();
+            const rawHeight = (document.getElementById('iframeHeight').value || '').trim();
+            const newTitle = (document.getElementById('iframeTitle').value || '').trim();
             const makeDormant = document.getElementById('makeDormant').checked;
+
+            const normalizeSize = (val, fallback) => {
+              if (!val) return fallback;
+              // Allow px, %, vh, vw. If just a number, assume px. Reject anything else
+              const num = val.match(/^\s*(\d+(?:\.\d+)?)\s*(px|%|vh|vw)?\s*$/i);
+              if (num) return num[1] + (num[2] ? num[2] : 'px');
+              return fallback;
+            };
+            const newWidth = normalizeSize(rawWidth, wrapper.style.width || '100%');
+            const newHeight = normalizeSize(rawHeight, wrapper.style.height || '500px');
             
-            // Update iframe properties
-            if (newSrc) iframe.src = newSrc;
+            // Update iframe properties (guard URL)
+            if (newSrc && /^(https?:)?\/\//i.test(newSrc)) iframe.src = newSrc;
             if (newTitle) iframe.title = newTitle;
             
             // Update wrapper dimensions
@@ -3731,6 +3741,7 @@
               wrapper.classList.remove('dormant');
             }
             
+            try { saveToHistory(); } catch (_) {}
             overlayBox.remove();
             backdrop.remove();
             window.isEditorModalOpen = false;
@@ -3950,14 +3961,23 @@
 
             // Apply Changes button
             document.getElementById('editOk').onclick = () => {
-              const newSrc = document.getElementById('iframeSrc').value;
-              const newWidth = document.getElementById('iframeWidth').value;
-              const newHeight = document.getElementById('iframeHeight').value;
-              const newTitle = document.getElementById('iframeTitle').value;
+              const newSrc = (document.getElementById('iframeSrc').value || '').trim();
+              const rawWidth = (document.getElementById('iframeWidth').value || '').trim();
+              const rawHeight = (document.getElementById('iframeHeight').value || '').trim();
+              const newTitle = (document.getElementById('iframeTitle').value || '').trim();
               const makeDormant = document.getElementById('makeDormant').checked;
+
+              const normalizeSize = (val, fallback) => {
+                if (!val) return fallback;
+                const num = val.match(/^\s*(\d+(?:\.\d+)?)\s*(px|%|vh|vw)?\s*$/i);
+                if (num) return num[1] + (num[2] ? num[2] : 'px');
+                return fallback;
+              };
+              const newWidth = normalizeSize(rawWidth, wrapper.style.width || '100%');
+              const newHeight = normalizeSize(rawHeight, wrapper.style.height || '500px');
               
               // Update iframe properties
-              if (newSrc) iframe.src = newSrc;
+              if (newSrc && /^(https?:)?\/\//i.test(newSrc)) iframe.src = newSrc;
               if (newTitle) iframe.title = newTitle;
               
               // Update wrapper dimensions
@@ -3973,6 +3993,7 @@
                 wrapper.classList.remove('dormant');
               }
               
+              try { saveToHistory(); } catch (_) {}
               overlayBox.remove();
               backdrop.remove();
               showStatus('✅ Google Form updated successfully', 2000, 'success');
