@@ -3708,7 +3708,7 @@
 
           // Apply Changes button
           document.getElementById('editOk').onclick = () => {
-            let newSrc = (document.getElementById('iframeSrc').value || '').trim();
+            let newSrc = extractIframeSrcFromString((document.getElementById('iframeSrc').value || '').trim());
             const rawWidth = (document.getElementById('iframeWidth').value || '').trim();
             const rawHeight = (document.getElementById('iframeHeight').value || '').trim();
             const newTitle = (document.getElementById('iframeTitle').value || '').trim();
@@ -3728,7 +3728,7 @@
               if (/^(docs\.google\.com|www\.|youtube\.com|youtu\.be)/i.test(val)) return 'https://' + val;
               return val;
             };
-            newSrc = normalizeUrl(newSrc);
+            newSrc = sanitizeIframeSrc(normalizeUrl(newSrc));
             const newWidth = normalizeSize(rawWidth, wrapper.style.width || '100%');
             const newHeight = normalizeSize(rawHeight, wrapper.style.height || '500px');
             
@@ -3739,7 +3739,7 @@
                 alert('Please paste a public Google Form URL like "https://docs.google.com/forms/d/e/FORM_ID/viewform". The generic Forms homepage cannot be embedded.');
                 return; // Do not apply invalid src
               }
-              newSrc = embedUrl;
+              newSrc = sanitizeIframeSrc(embedUrl);
             }
 
             // Update iframe properties (guard URL)
@@ -3983,7 +3983,7 @@
 
             // Apply Changes button
             document.getElementById('editOk').onclick = () => {
-              let newSrc = (document.getElementById('iframeSrc').value || '').trim();
+              let newSrc = extractIframeSrcFromString((document.getElementById('iframeSrc').value || '').trim());
               const rawWidth = (document.getElementById('iframeWidth').value || '').trim();
               const rawHeight = (document.getElementById('iframeHeight').value || '').trim();
               const newTitle = (document.getElementById('iframeTitle').value || '').trim();
@@ -5147,6 +5147,73 @@
         return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
       }).join(''));
     }
+    // Extract src from pasted iframe snippets or encoded iframe HTML
+    function extractIframeSrcFromString(value) {
+      if (!value) return value;
+      let v = value.trim();
+      try {
+        if (/%3Ciframe/i.test(v)) {
+          const decoded = decodeURIComponent(v);
+          if (/^\s*<iframe/i.test(decoded)) v = decoded;
+        }
+      } catch (_) {}
+      if (/^\s*<iframe[\s\S]*?>/i.test(v)) {
+        const m = v.match(/src\s*=\s*"([^"]+)"/i) || v.match(/src\s*=\s*'([^']+)'/i);
+        if (m && m[1]) return m[1];
+      }
+      return v.replace(/["']$/, '');
+    }
+
+    // Remove stray "Loading…" fallback text around iframes (legacy markup)
+    function cleanupIframeFallbackText(root) {
+      try {
+        const doc = root || (frame.contentDocument || frame.contentWindow.document);
+        if (!doc) return;
+        const isLoadingText = (t) => {
+          if (!t) return false;
+          const s = t.replace(/\s+/g, ' ').trim().toLowerCase();
+          return s === 'loading…' || s === 'loading...' || s === 'loading ..' || s === 'loading';
+        };
+        // Clean inside iframes (fallback content in tag)
+        doc.querySelectorAll('iframe').forEach(ifr => {
+          if (isLoadingText(ifr.textContent)) {
+            ifr.textContent = '';
+          }
+        });
+        // Clean adjacent text nodes after iframes
+        const walker = doc.createTreeWalker(doc.body || doc, NodeFilter.SHOW_ELEMENT, null);
+        const candidates = [];
+        while (walker.nextNode()) {
+          const node = walker.currentNode;
+          if (node && node.tagName === 'IFRAME') {
+            // Inspect following sibling text nodes
+            let sib = node.nextSibling;
+            while (sib && sib.nodeType === Node.TEXT_NODE) {
+              if (isLoadingText(sib.textContent)) {
+                const toRemove = sib;
+                sib = sib.nextSibling;
+                toRemove.parentNode && toRemove.parentNode.removeChild(toRemove);
+                continue;
+              }
+              if (sib.textContent && sib.textContent.trim() === '') {
+                const blank = sib;
+                sib = sib.nextSibling;
+                // keep single blank; but if multiple blanks around loading text, remove extras
+                if (blank.previousSibling && blank.previousSibling.nodeType === Node.TEXT_NODE) {
+                  blank.parentNode && blank.parentNode.removeChild(blank);
+                }
+                continue;
+              }
+              break;
+            }
+            // If next element sibling is a plain element whose inner text is just loading
+            if (node.nextElementSibling && isLoadingText(node.nextElementSibling.textContent)) {
+              node.nextElementSibling.remove();
+            }
+          }
+        }
+      } catch (_) { /* no-op */ }
+    }
 
     // Normalize Google Form URLs: preserve existing params and ensure embedded=true
     function normalizeGoogleFormUrl(url) {
@@ -5165,6 +5232,31 @@
           return url.includes('?') ? `${url}&embedded=true` : `${url}?embedded=true`;
         }
         return url;
+      }
+    }
+
+    // General sanitizer for iframe src values (fixes duplicated/encoded params like &;%3Bembedded)
+    function sanitizeIframeSrc(src) {
+      if (!src) return src;
+      let s = src.trim();
+      // Undo common accidental encodings and separators
+      s = s.replace(/&;+/g, '&').replace(/%3B/gi, ';');
+      // Ensure protocol when needed
+      if (/^(docs\.google\.com|youtube\.com|youtu\.be)/i.test(s)) {
+        s = 'https://' + s;
+      } else if (/^\/\//.test(s)) {
+        s = 'https:' + s;
+      }
+      try {
+        const u = new URL(s);
+        if (u.hostname.includes('docs.google.com') && u.pathname.includes('/forms/')) {
+          // Ensure embedded=true and deduplicate
+          u.searchParams.set('embedded', 'true');
+          return `${u.origin}${u.pathname}?${u.searchParams.toString()}`;
+        }
+        return u.toString();
+      } catch (_) {
+        return s;
       }
     }
 
@@ -5235,6 +5327,7 @@
           initializeHistory();
           const d = frame.contentDocument || frame.contentWindow.document;
           startHistoryObserver(d);
+          cleanupIframeFallbackText(d);
         }, 100);
       
       // Start auto-save
@@ -5863,6 +5956,31 @@
             try { if (!iframe.src || iframe.src !== src) { iframe.src = src; } } catch (_) {}
           }
         });
+
+        // Strip any legacy fallback "Loading…" text nodes surrounding iframes before serializing
+        try {
+          const body = cleanDoc.body || cleanDoc;
+          const allIframes = Array.from(body.querySelectorAll('iframe'));
+          allIframes.forEach(ifr => {
+            if (ifr.textContent && (ifr.textContent.trim() === 'Loading…' || ifr.textContent.trim() === 'Loading...')) {
+              ifr.textContent = '';
+            }
+            let sib = ifr.nextSibling;
+            while (sib && sib.nodeType === Node.TEXT_NODE) {
+              const txt = (sib.textContent || '').replace(/\s+/g, ' ').trim();
+              if (txt === 'Loading…' || txt === 'Loading...' || txt === 'Loading') {
+                const rm = sib; sib = sib.nextSibling; rm.remove();
+              } else if (txt === '') {
+                const rm = sib; sib = sib.nextSibling; rm.remove();
+              } else {
+                break;
+              }
+            }
+            if (ifr.nextElementSibling && (/^Loading(…|\.\.\.)?$/.test(ifr.nextElementSibling.textContent.trim()))) {
+              ifr.nextElementSibling.remove();
+            }
+          });
+        } catch (_) {}
         
         // Handle preview mode
         if (isPreviewMode) {
